@@ -50,7 +50,8 @@ class GenerateOtpUseCase:
         )
 
         otp = await self._otp_repo.create(otp)
-        assert otp.uuid is not None, "Repository must assign a UUID on create."
+        if otp.uuid is None:
+            raise RuntimeError("Repository must assign a UUID on create.")
 
         await self._cache.set(
             f"{OTP_CACHE_PREFIX}{command.user_uuid}:{command.otp_type.value}",

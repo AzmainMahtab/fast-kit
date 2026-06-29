@@ -15,7 +15,7 @@ class RefreshTokenCommand:
 @dataclass(frozen=True)
 class LogoutCommand:
     refresh_token: str
-    access_token: str
+    access_token: str = ""
 
 
 @dataclass(frozen=True)

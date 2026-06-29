@@ -2,6 +2,7 @@ from fastapi import APIRouter, Depends, Query
 
 from app.core.exceptions import AppException
 from app.core.pagination import DEFAULT_PAGE_SIZE, MAX_PAGE_SIZE, PaginationParams
+from app.core.rate_limit import rate_limit
 from app.core.response import CleanRoute, ErrorEnvelope, SuccessEnvelope
 from app.modules.user.api.dependencies import (
     get_delete_use_case,
@@ -70,8 +71,10 @@ def _map_error(exc: Exception) -> AppException:
     responses={
         409: {"model": ErrorEnvelope, "description": "Email already taken"},
         422: {"model": ErrorEnvelope, "description": "Validation error (password, phone, or passwords don't match)"},
+        429: {"model": ErrorEnvelope, "description": "Too many requests"},
     },
     summary="Register a new user",
+    dependencies=[Depends(rate_limit(3, 300))],
 )
 async def register(request: RegisterRequest, use_case: RegisterUserUseCase = Depends(get_register_use_case)):
     """Create a new user account.

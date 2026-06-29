@@ -29,4 +29,4 @@ class UserLoggedOutEvent:
 
     user_uuid: str
     jti: str
-    access_jti: str
+    access_jti: str | None = None

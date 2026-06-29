@@ -22,7 +22,7 @@ class UpdateUserStatusUseCase:
         if new_status == UserStatus.INACTIVE:
             raise CannotUpdateToInactiveError("Cannot manually set status to inactive. Use DELETE endpoint instead.")
 
-        user.status = new_status
+        user.update_status(new_status)
         updated_user = await self.user_repo.update(user)
         await self._event_bus.publish(
             UserUpdatedEvent(user_uuid=str(updated_user.uuid), email=updated_user.email.value)

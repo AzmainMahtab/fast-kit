@@ -51,7 +51,7 @@ class LoginUseCase:
             raise InvalidCredentialsError("Invalid email or password.")
 
         if need_to_rehash(user.hashed_password.value):
-            user.hashed_password = HashedPassword(get_password_hash(command.password))
+            user.update_password_hash(HashedPassword(get_password_hash(command.password)))
             await self._user_repo.update(user)
 
         await self._cache_login(command.email, user)

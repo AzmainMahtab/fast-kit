@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from pydantic import EmailStr
+from pydantic import EmailStr, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -76,6 +76,12 @@ class Settings(BaseSettings):
     # PAGINATION
     DEFAULT_PAGE_SIZE: int = 20
     MAX_PAGE_SIZE: int = 100
+
+    @model_validator(mode="after")
+    def _validate_security(self) -> Settings:
+        if not self.JWT_SECRET_KEY or len(self.JWT_SECRET_KEY) < 32:
+            raise ValueError("JWT_SECRET_KEY must be set and at least 32 characters long.")
+        return self
 
 
 settings = Settings()

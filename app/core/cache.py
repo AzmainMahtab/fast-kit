@@ -55,6 +55,14 @@ class ICacheService(ABC):
         """
 
     @abstractmethod
+    async def incr(self, key: str) -> int:
+        """Atomically increment a counter key by 1.
+
+        Returns the new counter value. If the key does not exist it is
+        created with a value of 1.
+        """
+
+    @abstractmethod
     async def set_ttl(self, key: str, value: Any, ttl: int) -> None:
         """Alias for ``set``. Provided for semantic clarity.
 
@@ -91,6 +99,9 @@ class RedisCache(ICacheService):
         result = await self._client.exists(key)
         return result > 0
 
+    async def incr(self, key: str) -> int:
+        return await self._client.incr(key)
+
     async def set_ttl(self, key: str, value: Any, ttl: int) -> None:
         await self.set(key, value, ttl)
 
@@ -113,6 +124,9 @@ class NullCache(ICacheService):
 
     async def exists(self, key: str) -> bool:
         return False
+
+    async def incr(self, key: str) -> int:
+        return 1
 
     async def set_ttl(self, key: str, value: Any, ttl: int) -> None:
         pass

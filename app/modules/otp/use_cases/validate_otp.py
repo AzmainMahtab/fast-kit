@@ -63,7 +63,8 @@ class ValidateOtpUseCase:
             raise InvalidOtpError("Invalid OTP code.")
 
         # Mark used and publish event
-        assert otp.uuid is not None, "OTP entity must have a UUID."
+        if otp.uuid is None:
+            raise RuntimeError("OTP entity must have a UUID.")
         await self._otp_repo.mark_as_used(otp.uuid)
         await self._cache.delete(f"{OTP_CACHE_PREFIX}{command.user_uuid}:{command.otp_type.value}")
 

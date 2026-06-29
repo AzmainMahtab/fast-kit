@@ -14,7 +14,12 @@ class UserStatus(StrEnum):
 
 @dataclass
 class User:
-    """Domain Entity: The user itself, containing state and behavior."""
+    """Domain Entity: The user itself, containing state and behavior.
+
+    Fields are public for low-friction construction (dataclass) and mapping,
+    but state changes outside the domain layer should use the explicit
+    behavior methods to preserve business rules.
+    """
 
     id: int | None = None
     uuid: str | None = None
@@ -49,3 +54,14 @@ class User:
     def restore(self) -> None:
         self.status = UserStatus.PENDING_VERIFICATION
         self.deleted_at = None
+
+    def update_status(self, new_status: UserStatus) -> None:
+        """Update status via admin API. Rejects direct transition to INACTIVE
+        (use soft_delete instead)."""
+        if new_status == UserStatus.INACTIVE:
+            raise ValueError("Cannot manually set status to inactive. Use soft_delete() instead.")
+        self.status = new_status
+
+    def update_password_hash(self, new_hash: HashedPassword) -> None:
+        """Rehash the password when Argon2 parameters change."""
+        self.hashed_password = new_hash

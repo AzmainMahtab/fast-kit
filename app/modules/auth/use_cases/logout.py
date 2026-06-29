@@ -57,14 +57,16 @@ class LogoutUseCase:
             await self._cache.set(f"token:blacklist:{refresh_jti}", "1", ttl)
 
         # --- access token ---
-        try:
-            access_payload = self._jwt.decode(command.access_token)
-        except pyjwt.ExpiredSignatureError:
-            access_payload = None
-        except pyjwt.InvalidTokenError:
-            raise InvalidTokenError("Invalid access token.") from None
+        access_jti: str | None = None
+        access_payload = None
 
-        access_jti: str = ""
+        if command.access_token:
+            try:
+                access_payload = self._jwt.decode(command.access_token)
+            except pyjwt.ExpiredSignatureError:
+                access_payload = None
+            except pyjwt.InvalidTokenError:
+                raise InvalidTokenError("Invalid access token.") from None
 
         if access_payload is not None:
             if access_payload.get("type") != "access":

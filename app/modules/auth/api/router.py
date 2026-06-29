@@ -2,6 +2,7 @@ from fastapi import APIRouter, Depends
 from fastapi.security import HTTPAuthorizationCredentials
 
 from app.core.exceptions import AppException
+from app.core.rate_limit import rate_limit
 from app.core.response import CleanRoute, ErrorEnvelope, SuccessEnvelope
 from app.modules.auth.api.dependencies import (
     get_activate_account_use_case,
@@ -23,7 +24,13 @@ from app.modules.auth.api.schemas import (
     TokenResponse,
     UserProfileResponse,
 )
-from app.modules.auth.cqrs.command import ActivateAccountCommand, LoginCommand, LogoutCommand, RefreshTokenCommand, SendActivationOtpCommand
+from app.modules.auth.cqrs.command import (
+    ActivateAccountCommand,
+    LoginCommand,
+    LogoutCommand,
+    RefreshTokenCommand,
+    SendActivationOtpCommand,
+)
 from app.modules.auth.cqrs.query import GetProfileQuery
 from app.modules.auth.domain.exception import AUTH_EXCEPTIONS, AuthenticationError
 from app.modules.auth.use_cases.activate_account import ActivateAccountUseCase
@@ -60,8 +67,10 @@ def _map_auth_error(exc: AuthenticationError) -> AppException:
     responses={
         401: {"model": ErrorEnvelope, "description": "Invalid credentials"},
         403: {"model": ErrorEnvelope, "description": "Account suspended"},
+        429: {"model": ErrorEnvelope, "description": "Too many requests"},
     },
     summary="Authenticate and receive JWT tokens",
+    dependencies=[Depends(rate_limit(5, 60))],
 )
 async def login(request: LoginRequest, use_case: LoginUseCase = Depends(get_login_use_case)):
     """Authenticate a user with email and password.
@@ -83,8 +92,12 @@ async def login(request: LoginRequest, use_case: LoginUseCase = Depends(get_logi
 @router.post(
     "/refresh",
     response_model=SuccessEnvelope[TokenResponse],
-    responses={401: {"model": ErrorEnvelope, "description": "Invalid or expired refresh token"}},
+    responses={
+        401: {"model": ErrorEnvelope, "description": "Invalid or expired refresh token"},
+        429: {"model": ErrorEnvelope, "description": "Too many requests"},
+    },
     summary="Obtain a new access token using a refresh token",
+    dependencies=[Depends(rate_limit(10, 60))],
 )
 async def refresh(request: RefreshRequest, use_case: RefreshTokenUseCase = Depends(get_refresh_use_case)):
     """Exchange a valid refresh token for a new token pair.
@@ -107,8 +120,12 @@ async def refresh(request: RefreshRequest, use_case: RefreshTokenUseCase = Depen
     "/logout",
     status_code=200,
     response_model=SuccessEnvelope[dict],
-    responses={401: {"model": ErrorEnvelope, "description": "Invalid token"}},
+    responses={
+        401: {"model": ErrorEnvelope, "description": "Invalid token"},
+        429: {"model": ErrorEnvelope, "description": "Too many requests"},
+    },
     summary="Revoke tokens",
+    dependencies=[Depends(rate_limit(10, 60))],
 )
 async def logout(
     request: LogoutRequest,
@@ -157,8 +174,10 @@ async def profile(
     responses={
         401: {"model": ErrorEnvelope, "description": "Invalid or missing access token"},
         409: {"model": ErrorEnvelope, "description": "Account is already active"},
+        429: {"model": ErrorEnvelope, "description": "Too many requests"},
     },
     summary="Send an account activation OTP to the user's email",
+    dependencies=[Depends(rate_limit(3, 300))],
 )
 async def send_activation_otp(
     identity: str = Depends(require_authenticated),
@@ -180,8 +199,10 @@ async def send_activation_otp(
     responses={
         401: {"model": ErrorEnvelope, "description": "Invalid, expired, or already-used OTP"},
         409: {"model": ErrorEnvelope, "description": "Account is already active"},
+        429: {"model": ErrorEnvelope, "description": "Too many requests"},
     },
     summary="Verify activation OTP and activate the account",
+    dependencies=[Depends(rate_limit(5, 60))],
 )
 async def activate_account(
     request: ActivateAccountRequest,
