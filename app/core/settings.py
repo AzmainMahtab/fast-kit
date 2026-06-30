@@ -60,6 +60,8 @@ class Settings(BaseSettings):
     # FIRST SUPERUSER
     FIRST_SUPERUSER_EMAIL: EmailStr | None = None
     FIRST_SUPERUSER_PASSWORD: str | None = None
+    FIRST_SUPERUSER_USERNAME: str = "admin"
+    FIRST_SUPERUSER_PHONE_NUMBER: str = "+1234567890"
 
     # EMAIL (SMTP)
     SMTP_HOST: str | None = None

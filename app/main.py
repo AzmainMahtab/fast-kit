@@ -6,7 +6,9 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.core.cache import NullCache, RedisCache, create_redis_client
+from app.core.database import AsyncSessionLocal
 from app.core.event_bus import InMemoryEventBus
+from app.core.seed import seed_superuser
 from app.core.exception_handlers import (
     app_exception_handler,
     auth_exception_handler,
@@ -53,6 +55,8 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None]:
     # automatically on every successful authentication.
     login_otp_handler = create_generate_login_otp_handler(app.state.cache_service, app.state.event_bus)
     app.state.event_bus.subscribe(UserLoggedInEvent, login_otp_handler)
+
+    await seed_superuser()
 
     yield
     app.state.event_bus = None
