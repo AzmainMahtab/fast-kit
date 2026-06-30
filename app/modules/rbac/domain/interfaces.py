@@ -47,7 +47,9 @@ class IRbacRepository(ABC):
 
     # Role <-> Permission
     @abstractmethod
-    async def assign_permission_to_role(self, role_id: int, permission_id: int) -> None:
+    async def assign_permission_to_role(
+        self, role_id: int, permission_id: int, assigned_by: int | None = None
+    ) -> None:
         pass
 
     @abstractmethod
@@ -60,7 +62,9 @@ class IRbacRepository(ABC):
 
     # User <-> Role
     @abstractmethod
-    async def assign_role_to_user(self, user_id: int, role_id: int) -> None:
+    async def assign_role_to_user(
+        self, user_id: int, role_id: int, assigned_by: int | None = None
+    ) -> None:
         pass
 
     @abstractmethod

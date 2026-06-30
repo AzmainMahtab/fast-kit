@@ -16,4 +16,6 @@ class AssignPermissionToRoleUseCase:
         if not permission:
             raise PermissionNotFoundError(f"Permission with uuid {command.permission_uuid} not found.")
 
-        await self.rbac_repo.assign_permission_to_role(role.id, permission.id)
+        await self.rbac_repo.assign_permission_to_role(
+            role.id, permission.id, assigned_by=command.assigned_by
+        )

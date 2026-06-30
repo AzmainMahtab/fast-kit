@@ -6,7 +6,12 @@ from app.core.pagination import PaginationParams
 from app.modules.rbac.domain.entities import Permission, Role
 from app.modules.rbac.domain.interfaces import IRbacRepository
 from app.modules.rbac.infrastructure.persistence.mapper import map_permission_to_domain, map_role_to_domain
-from app.modules.rbac.infrastructure.persistence.models import PermissionModel, RoleModel, role_permissions, user_roles
+from app.modules.rbac.infrastructure.persistence.models import (
+    PermissionModel,
+    RoleModel,
+    RolePermissionModel,
+    UserRoleModel,
+)
 
 
 class SQLAlchemyRbacRepository(IRbacRepository):
@@ -90,31 +95,30 @@ class SQLAlchemyRbacRepository(IRbacRepository):
 
     # Role <-> Permission
 
-    async def assign_permission_to_role(self, role_id: int, permission_id: int) -> None:
-        stmt = select(role_permissions).where(
-            role_permissions.c.role_id == role_id,
-            role_permissions.c.permission_id == permission_id,
-        )
-        result = await self.session.execute(stmt)
-        if result.first():
+    async def assign_permission_to_role(
+        self, role_id: int, permission_id: int, assigned_by: int | None = None
+    ) -> None:
+        existing = await self.session.get(RolePermissionModel, (role_id, permission_id))
+        if existing:
             return  # Already assigned
-        await self.session.execute(
-            role_permissions.insert().values(role_id=role_id, permission_id=permission_id)
+        self.session.add(
+            RolePermissionModel(
+                role_id=role_id,
+                permission_id=permission_id,
+                assigned_by=assigned_by,
+            )
         )
 
     async def remove_permission_from_role(self, role_id: int, permission_id: int) -> None:
-        await self.session.execute(
-            role_permissions.delete().where(
-                role_permissions.c.role_id == role_id,
-                role_permissions.c.permission_id == permission_id,
-            )
-        )
+        rp = await self.session.get(RolePermissionModel, (role_id, permission_id))
+        if rp:
+            await self.session.delete(rp)
 
     async def get_role_permissions(self, role_id: int) -> list[Permission]:
         stmt = (
             select(PermissionModel)
-            .join(role_permissions, PermissionModel.id == role_permissions.c.permission_id)
-            .where(role_permissions.c.role_id == role_id)
+            .join(RolePermissionModel, PermissionModel.id == RolePermissionModel.permission_id)
+            .where(RolePermissionModel.role_id == role_id)
         )
         result = await self.session.execute(stmt)
         orms = result.scalars().all()
@@ -122,31 +126,30 @@ class SQLAlchemyRbacRepository(IRbacRepository):
 
     # User <-> Role
 
-    async def assign_role_to_user(self, user_id: int, role_id: int) -> None:
-        stmt = select(user_roles).where(
-            user_roles.c.user_id == user_id,
-            user_roles.c.role_id == role_id,
-        )
-        result = await self.session.execute(stmt)
-        if result.first():
+    async def assign_role_to_user(
+        self, user_id: int, role_id: int, assigned_by: int | None = None
+    ) -> None:
+        existing = await self.session.get(UserRoleModel, (user_id, role_id))
+        if existing:
             return  # Already assigned
-        await self.session.execute(
-            user_roles.insert().values(user_id=user_id, role_id=role_id)
+        self.session.add(
+            UserRoleModel(
+                user_id=user_id,
+                role_id=role_id,
+                assigned_by=assigned_by,
+            )
         )
 
     async def remove_role_from_user(self, user_id: int, role_id: int) -> None:
-        await self.session.execute(
-            user_roles.delete().where(
-                user_roles.c.user_id == user_id,
-                user_roles.c.role_id == role_id,
-            )
-        )
+        ur = await self.session.get(UserRoleModel, (user_id, role_id))
+        if ur:
+            await self.session.delete(ur)
 
     async def get_user_roles(self, user_id: int) -> list[Role]:
         stmt = (
             select(RoleModel)
-            .join(user_roles, RoleModel.id == user_roles.c.role_id)
-            .where(user_roles.c.user_id == user_id)
+            .join(UserRoleModel, RoleModel.id == UserRoleModel.role_id)
+            .where(UserRoleModel.user_id == user_id)
             .options(selectinload(RoleModel.permissions))
         )
         result = await self.session.execute(stmt)
@@ -157,9 +160,9 @@ class SQLAlchemyRbacRepository(IRbacRepository):
         stmt = (
             select(PermissionModel)
             .distinct()
-            .join(role_permissions, PermissionModel.id == role_permissions.c.permission_id)
-            .join(user_roles, role_permissions.c.role_id == user_roles.c.role_id)
-            .where(user_roles.c.user_id == user_id)
+            .join(RolePermissionModel, PermissionModel.id == RolePermissionModel.permission_id)
+            .join(UserRoleModel, RolePermissionModel.role_id == UserRoleModel.role_id)
+            .where(UserRoleModel.user_id == user_id)
         )
         result = await self.session.execute(stmt)
         orms = result.scalars().all()
@@ -169,9 +172,9 @@ class SQLAlchemyRbacRepository(IRbacRepository):
         stmt = (
             select(func.count())
             .select_from(PermissionModel)
-            .join(role_permissions, PermissionModel.id == role_permissions.c.permission_id)
-            .join(user_roles, role_permissions.c.role_id == user_roles.c.role_id)
-            .where(user_roles.c.user_id == user_id, PermissionModel.name == permission_name)
+            .join(RolePermissionModel, PermissionModel.id == RolePermissionModel.permission_id)
+            .join(UserRoleModel, RolePermissionModel.role_id == UserRoleModel.role_id)
+            .where(UserRoleModel.user_id == user_id, PermissionModel.name == permission_name)
         )
         result = await self.session.execute(stmt)
         return result.scalar_one() > 0
@@ -180,8 +183,8 @@ class SQLAlchemyRbacRepository(IRbacRepository):
         stmt = (
             select(func.count())
             .select_from(RoleModel)
-            .join(user_roles, RoleModel.id == user_roles.c.role_id)
-            .where(user_roles.c.user_id == user_id, RoleModel.name == role_name)
+            .join(UserRoleModel, RoleModel.id == UserRoleModel.role_id)
+            .where(UserRoleModel.user_id == user_id, RoleModel.name == role_name)
         )
         result = await self.session.execute(stmt)
         return result.scalar_one() > 0

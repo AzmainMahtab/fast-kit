@@ -1,5 +1,6 @@
 from fastapi import APIRouter, Depends, Query
 
+from app.core.auth import require_authenticated_user
 from app.core.exceptions import AppException
 from app.core.pagination import DEFAULT_PAGE_SIZE, MAX_PAGE_SIZE, PaginationParams
 from app.core.response import CleanRoute, ErrorEnvelope, SuccessEnvelope
@@ -220,8 +221,13 @@ async def assign_permission_to_role(
     role_uuid: str,
     request: AssignPermissionRequest,
     use_case: AssignPermissionToRoleUseCase = Depends(get_assign_permission_use_case),
+    current_user=Depends(require_authenticated_user),
 ):
-    command = AssignPermissionToRoleCommand(role_uuid=role_uuid, permission_uuid=request.permission_uuid)
+    command = AssignPermissionToRoleCommand(
+        role_uuid=role_uuid,
+        permission_uuid=request.permission_uuid,
+        assigned_by=current_user.id,
+    )
     try:
         await use_case.execute(command)
     except (RoleNotFoundError, PermissionNotFoundError, PermissionAlreadyAssignedError) as e:
@@ -267,8 +273,13 @@ async def assign_role_to_user(
     role_uuid: str,
     request: AssignRoleRequest,
     use_case: AssignRoleUseCase = Depends(get_assign_role_use_case),
+    current_user=Depends(require_authenticated_user),
 ):
-    command = AssignRoleCommand(user_id=request.user_id, role_uuid=role_uuid)
+    command = AssignRoleCommand(
+        user_id=request.user_id,
+        role_uuid=role_uuid,
+        assigned_by=current_user.id,
+    )
     try:
         await use_case.execute(command)
     except (RoleNotFoundError, RoleAlreadyAssignedError) as e:

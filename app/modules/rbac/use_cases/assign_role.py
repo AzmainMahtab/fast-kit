@@ -16,4 +16,4 @@ class AssignRoleUseCase:
         if already_has:
             raise RoleAlreadyAssignedError(f"User already has role '{role.name}'.")
 
-        await self.rbac_repo.assign_role_to_user(command.user_id, role.id)
+        await self.rbac_repo.assign_role_to_user(command.user_id, role.id, assigned_by=command.assigned_by)

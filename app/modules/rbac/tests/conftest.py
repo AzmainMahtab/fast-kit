@@ -79,7 +79,9 @@ class InMemoryRbacRepository(IRbacRepository):
 
     # Role <-> Permission
 
-    async def assign_permission_to_role(self, role_id: int, permission_id: int) -> None:
+    async def assign_permission_to_role(
+        self, role_id: int, permission_id: int, assigned_by: int | None = None
+    ) -> None:
         if role_id not in self._role_permissions:
             self._role_permissions[role_id] = set()
         self._role_permissions[role_id].add(permission_id)
@@ -94,7 +96,9 @@ class InMemoryRbacRepository(IRbacRepository):
 
     # User <-> Role
 
-    async def assign_role_to_user(self, user_id: int, role_id: int) -> None:
+    async def assign_role_to_user(
+        self, user_id: int, role_id: int, assigned_by: int | None = None
+    ) -> None:
         if user_id not in self._user_roles:
             self._user_roles[user_id] = set()
         self._user_roles[user_id].add(role_id)

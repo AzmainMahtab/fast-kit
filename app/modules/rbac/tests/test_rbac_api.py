@@ -5,6 +5,7 @@ from fastapi import FastAPI
 from httpx import ASGITransport, AsyncClient
 
 from app.main import app as fastapi_app
+from app.modules.auth.api.dependencies import require_authenticated_user
 from app.modules.rbac.api.dependencies import (
     get_assign_permission_use_case,
     get_assign_role_use_case,
@@ -20,6 +21,21 @@ from app.modules.rbac.use_cases.create_permission import CreatePermissionUseCase
 from app.modules.rbac.use_cases.create_role import CreateRoleUseCase
 from app.modules.rbac.use_cases.list_permissions import ListPermissionsUseCase
 from app.modules.rbac.use_cases.list_roles import ListRolesUseCase
+from app.modules.user.domain.entities import User, UserStatus
+from app.modules.user.domain.value_objects import Email, HashedPassword, PhoneNumber
+
+
+def _mock_superuser() -> User:
+    return User(
+        id=1,
+        uuid="mock-user-uuid",
+        email=Email("mock@example.com"),
+        hashed_password=HashedPassword("mock"),
+        username="mockuser",
+        phone_number=PhoneNumber("+1234567890"),
+        is_superuser=True,
+        status=UserStatus.ACTIVE,
+    )
 
 
 @pytest.fixture
@@ -37,6 +53,7 @@ def override_rbac_deps(app: FastAPI, rbac_repo: InMemoryRbacRepository) -> Gener
         lambda: AssignPermissionToRoleUseCase(rbac_repo=rbac_repo)
     )
     app.dependency_overrides[get_assign_role_use_case] = lambda: AssignRoleUseCase(rbac_repo=rbac_repo)
+    app.dependency_overrides[require_authenticated_user] = _mock_superuser
     yield
     app.dependency_overrides.clear()
 
