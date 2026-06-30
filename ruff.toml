@@ -46,6 +46,36 @@ ignore = [
 "app/modules/user/infrastructure/persistence/repository.py" = [
     "B008",  # PaginationParams is frozen, safe as default
 ]
+"app/modules/owner/api/dependencies.py" = [
+    "B008",  # Depends() in defaults is required FastAPI pattern
+]
+"app/modules/owner/api/router.py" = [
+    "B008",  # Depends()/Query() in defaults is required FastAPI pattern
+]
+"app/modules/owner/domain/interfaces.py" = [
+    "B008",  # PaginationParams is frozen, safe as default
+]
+"app/modules/owner/infrastructure/persistence/repository.py" = [
+    "B008",  # PaginationParams is frozen, safe as default
+]
+"app/modules/car/api/dependencies.py" = [
+    "B008",  # Depends() in defaults is required FastAPI pattern
+]
+"app/modules/car/api/router.py" = [
+    "B008",  # Depends()/Query() in defaults is required FastAPI pattern
+]
+"app/modules/car/domain/interfaces.py" = [
+    "B008",  # PaginationParams is frozen, safe as default
+]
+"app/modules/car/infrastructure/persistence/repository.py" = [
+    "B008",  # PaginationParams is frozen, safe as default
+]
+"app/modules/car/infrastructure/persistence/models.py" = [
+    "UP037",  # SQLAlchemy forward references require quotes
+]
+"app/modules/owner/infrastructure/persistence/models.py" = [
+    "UP037",  # SQLAlchemy forward references require quotes
+]
 [lint.pydocstyle]
 convention = "google"
 

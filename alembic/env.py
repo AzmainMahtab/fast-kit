@@ -13,7 +13,9 @@ from alembic import context
 from app.core.database import Base
 
 # All models here for Alembic to detect. Import your models here.
+from app.modules.car.infrastructure.persistence.models import CarModel  # noqa: F401
 from app.modules.otp.infrastructure.persistence.models import OtpModel  # noqa: F401
+from app.modules.owner.infrastructure.persistence.models import OwnerModel  # noqa: F401
 from app.modules.user.infrastructure.persistence.models import UserModel  # noqa: F401
 
 load_dotenv()

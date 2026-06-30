@@ -22,8 +22,10 @@ from app.modules.auth.api.router import router as auth_router
 from app.modules.auth.domain.events import UserLoggedInEvent
 from app.modules.auth.domain.exception import AuthenticationError
 from app.modules.auth.infrastructure.event_handlers import create_invalidate_user_caches_handler
+from app.modules.car.api.router import router as car_router
 from app.modules.otp.api.router import router as otp_router
 from app.modules.otp.infrastructure.event_handlers import create_generate_login_otp_handler
+from app.modules.owner.api.router import router as owner_router
 from app.modules.user.api.router import router as user_router
 from app.modules.user.domain.events import UserUpdatedEvent
 
@@ -85,3 +87,5 @@ async def health():
 app.include_router(user_router, prefix=settings.API_V1_PREFIX)
 app.include_router(auth_router, prefix=settings.API_V1_PREFIX)
 app.include_router(otp_router, prefix=settings.API_V1_PREFIX)
+app.include_router(owner_router, prefix=settings.API_V1_PREFIX)
+app.include_router(car_router, prefix=settings.API_V1_PREFIX)
