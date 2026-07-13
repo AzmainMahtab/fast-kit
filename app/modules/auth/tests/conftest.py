@@ -21,6 +21,10 @@ class InMemoryUserRepository(IUserRepository):
     def __init__(self) -> None:
         self._users: dict[str, User] = {}
 
+    async def commit(self) -> None:
+        """No-op for the in-memory test double."""
+        return
+
     async def get_by_uuid(self, uuid: str) -> User | None:
         return self._users.get(uuid)
 

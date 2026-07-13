@@ -5,7 +5,7 @@ from enum import StrEnum
 from pydantic import BaseModel, ConfigDict, EmailStr, Field, field_validator
 
 from app.core.pagination import PaginatedResponse
-from app.modules.user.domain.entities import UserStatus
+from app.modules.user.domain.entities import User, UserStatus
 
 
 class UpdatableStatus(StrEnum):
@@ -77,7 +77,7 @@ class UserResponse(BaseModel):
     deleted_at: datetime | None = Field(default=None, description="Timestamp of soft deletion, if applicable.")
 
     @classmethod
-    def from_entity(cls, user) -> UserResponse:
+    def from_entity(cls, user: User) -> UserResponse:
         """Build a response schema from a ``User`` domain entity.
 
         Args:
@@ -93,7 +93,7 @@ class UserResponse(BaseModel):
             phone_number=user.phone_number.value,
             first_name=user.first_name,
             last_name=user.last_name,
-            status=user.status.value if hasattr(user.status, "value") else user.status,
+            status=user.status,
             is_superuser=user.is_superuser,
             created_at=user.created_at,
             updated_at=user.updated_at,

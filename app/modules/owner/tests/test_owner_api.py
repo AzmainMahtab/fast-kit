@@ -51,10 +51,7 @@ def override_owner_deps(app: FastAPI, owner_repo: InMemoryOwnerRepository) -> Ge
 async def test_create_owner_returns_201(app, override_owner_deps) -> None:
     transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url="http://test") as client:
-        response = await client.post(
-            "/api/v1/owners",
-            json={"user_id": 1, "address": "123 Main St"},
-        )
+        response = await client.post("/api/v1/owners", json={"user_id": 1, "address": "123 Main St"})
 
     assert response.status_code == 201
     body = response.json()

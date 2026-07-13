@@ -72,7 +72,9 @@ def _map_auth_error(exc: AuthenticationError) -> AppException:
     summary="Authenticate and receive JWT tokens",
     dependencies=[Depends(rate_limit(5, 60))],
 )
-async def login(request: LoginRequest, use_case: LoginUseCase = Depends(get_login_use_case)):
+async def login(
+    request: LoginRequest, use_case: LoginUseCase = Depends(get_login_use_case)
+) -> SuccessEnvelope[TokenResponse]:
     """Authenticate a user with email and password.
 
     Validates credentials against Argon2id, caches the result in Redis
@@ -99,7 +101,9 @@ async def login(request: LoginRequest, use_case: LoginUseCase = Depends(get_logi
     summary="Obtain a new access token using a refresh token",
     dependencies=[Depends(rate_limit(10, 60))],
 )
-async def refresh(request: RefreshRequest, use_case: RefreshTokenUseCase = Depends(get_refresh_use_case)):
+async def refresh(
+    request: RefreshRequest, use_case: RefreshTokenUseCase = Depends(get_refresh_use_case)
+) -> SuccessEnvelope[TokenResponse]:
     """Exchange a valid refresh token for a new token pair.
 
     The old refresh token is blacklisted immediately (rotation) so it
@@ -119,7 +123,7 @@ async def refresh(request: RefreshRequest, use_case: RefreshTokenUseCase = Depen
 @router.post(
     "/logout",
     status_code=200,
-    response_model=SuccessEnvelope[dict],
+    response_model=SuccessEnvelope[dict[str, str]],
     responses={
         401: {"model": ErrorEnvelope, "description": "Invalid token"},
         429: {"model": ErrorEnvelope, "description": "Too many requests"},
@@ -131,7 +135,7 @@ async def logout(
     request: LogoutRequest,
     credentials: HTTPAuthorizationCredentials = Depends(security),
     use_case: LogoutUseCase = Depends(get_logout_use_case),
-):
+) -> SuccessEnvelope[dict[str, str]]:
     """Revoke both the refresh token and the current access token.
 
     The refresh token (from the request body) and the access token
@@ -155,7 +159,7 @@ async def logout(
 )
 async def profile(
     identity: str = Depends(require_authenticated), use_case: GetProfileUseCase = Depends(get_profile_use_case)
-):
+) -> SuccessEnvelope[UserProfileResponse]:
     """Return the authenticated user's profile details.
 
     Requires a valid **access token** in the ``Authorization`` header.
@@ -182,7 +186,7 @@ async def profile(
 async def send_activation_otp(
     identity: str = Depends(require_authenticated),
     use_case: SendActivationOtpUseCase = Depends(get_send_activation_otp_use_case),
-):
+) -> SuccessEnvelope[SendActivationOtpResponse]:
     command = SendActivationOtpCommand(user_uuid=identity)
     try:
         result = await use_case.execute(command)
@@ -208,7 +212,7 @@ async def activate_account(
     request: ActivateAccountRequest,
     identity: str = Depends(require_authenticated),
     use_case: ActivateAccountUseCase = Depends(get_activate_account_use_case),
-):
+) -> SuccessEnvelope[ActivateAccountResponse]:
     command = ActivateAccountCommand(user_uuid=identity, code=request.code)
     try:
         result = await use_case.execute(command)

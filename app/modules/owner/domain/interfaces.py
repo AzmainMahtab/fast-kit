@@ -6,6 +6,11 @@ from app.modules.owner.domain.entities import Owner
 
 class IOwnerRepository(ABC):
     @abstractmethod
+    async def commit(self) -> None:
+        """Persist all pending changes to the underlying store."""
+        pass
+
+    @abstractmethod
     async def get_by_id(self, owner_id: int) -> Owner | None:
         pass
 
@@ -22,8 +27,5 @@ class IOwnerRepository(ABC):
         pass
 
     @abstractmethod
-    async def list_all(
-        self,
-        pagination: PaginationParams = PaginationParams(),
-    ) -> tuple[list[Owner], int]:
+    async def list_all(self, pagination: PaginationParams = PaginationParams()) -> tuple[list[Owner], int]:
         pass

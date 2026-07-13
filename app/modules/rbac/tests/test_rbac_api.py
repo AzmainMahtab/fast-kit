@@ -49,8 +49,8 @@ def override_rbac_deps(app: FastAPI, rbac_repo: InMemoryRbacRepository) -> Gener
     app.dependency_overrides[get_create_role_use_case] = lambda: CreateRoleUseCase(rbac_repo=rbac_repo)
     app.dependency_overrides[get_list_permissions_use_case] = lambda: ListPermissionsUseCase(rbac_repo=rbac_repo)
     app.dependency_overrides[get_list_roles_use_case] = lambda: ListRolesUseCase(rbac_repo=rbac_repo)
-    app.dependency_overrides[get_assign_permission_use_case] = (
-        lambda: AssignPermissionToRoleUseCase(rbac_repo=rbac_repo)
+    app.dependency_overrides[get_assign_permission_use_case] = lambda: AssignPermissionToRoleUseCase(
+        rbac_repo=rbac_repo
     )
     app.dependency_overrides[get_assign_role_use_case] = lambda: AssignRoleUseCase(rbac_repo=rbac_repo)
     app.dependency_overrides[require_authenticated_user] = _mock_superuser
@@ -63,8 +63,7 @@ async def test_create_permission_returns_201(app, override_rbac_deps) -> None:
     transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url="http://test") as client:
         response = await client.post(
-            "/api/v1/rbac/permissions",
-            json={"name": "owner:create", "resource": "owner", "action": "create"},
+            "/api/v1/rbac/permissions", json={"name": "owner:create", "resource": "owner", "action": "create"}
         )
 
     assert response.status_code == 201
@@ -78,12 +77,10 @@ async def test_create_permission_returns_409_on_duplicate(app, override_rbac_dep
     transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url="http://test") as client:
         await client.post(
-            "/api/v1/rbac/permissions",
-            json={"name": "owner:create", "resource": "owner", "action": "create"},
+            "/api/v1/rbac/permissions", json={"name": "owner:create", "resource": "owner", "action": "create"}
         )
         response = await client.post(
-            "/api/v1/rbac/permissions",
-            json={"name": "owner:create", "resource": "owner", "action": "create"},
+            "/api/v1/rbac/permissions", json={"name": "owner:create", "resource": "owner", "action": "create"}
         )
 
     assert response.status_code == 409
@@ -115,10 +112,7 @@ async def test_assign_permission_to_role_returns_200(app, override_rbac_deps) ->
         role_resp = await client.post("/api/v1/rbac/roles", json={"name": "manager"})
         role_uuid = role_resp.json()["data"]["uuid"]
 
-        response = await client.post(
-            f"/api/v1/rbac/roles/{role_uuid}/permissions",
-            json={"permission_uuid": perm_uuid},
-        )
+        response = await client.post(f"/api/v1/rbac/roles/{role_uuid}/permissions", json={"permission_uuid": perm_uuid})
 
     assert response.status_code == 200
     body = response.json()

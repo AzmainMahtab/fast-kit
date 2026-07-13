@@ -3,6 +3,7 @@ from datetime import datetime
 from pydantic import BaseModel, ConfigDict, Field
 
 from app.core.pagination import PaginatedResponse
+from app.modules.rbac.domain.entities import Permission, Role
 
 
 class CreatePermissionRequest(BaseModel):
@@ -24,7 +25,7 @@ class PermissionResponse(BaseModel):
     updated_at: datetime | None = Field(default=None, description="Timestamp of last update.")
 
     @classmethod
-    def from_entity(cls, permission) -> PermissionResponse:
+    def from_entity(cls, permission: Permission) -> PermissionResponse:
         return cls(
             uuid=permission.uuid or "",
             name=permission.name,
@@ -54,7 +55,7 @@ class RoleResponse(BaseModel):
     updated_at: datetime | None = Field(default=None, description="Timestamp of last update.")
 
     @classmethod
-    def from_entity(cls, role) -> RoleResponse:
+    def from_entity(cls, role: Role) -> RoleResponse:
         return cls(
             uuid=role.uuid or "",
             name=role.name,

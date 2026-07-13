@@ -6,6 +6,11 @@ from app.modules.otp.domain.value_objects import OtpType
 
 class IOtpRepository(ABC):
     @abstractmethod
+    async def commit(self) -> None:
+        """Persist all pending changes to the underlying store."""
+        ...
+
+    @abstractmethod
     async def create(self, otp: OneTimePassword) -> OneTimePassword:
         """Persist a new OTP entity."""
         ...

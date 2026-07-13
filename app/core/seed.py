@@ -71,9 +71,7 @@ async def seed_superuser() -> None:
             if existing:
                 permission_map[name] = existing
             else:
-                perm = await rbac_repo.create_permission(
-                    Permission(name=name, resource=resource, action=action)
-                )
+                perm = await rbac_repo.create_permission(Permission(name=name, resource=resource, action=action))
                 permission_map[name] = perm
 
         # 2. Seed superadmin role (idempotent)
@@ -84,7 +82,11 @@ async def seed_superuser() -> None:
             )
 
         # 3. Assign all permissions to superadmin role (idempotent)
+        if superadmin_role.id is None:
+            raise RuntimeError("Superadmin role was not assigned an identifier.")
         for perm in permission_map.values():
+            if perm.id is None:
+                continue
             await rbac_repo.assign_permission_to_role(superadmin_role.id, perm.id)
 
         # 4. Seed superuser (idempotent)
@@ -104,6 +106,8 @@ async def seed_superuser() -> None:
             superuser = await user_repo.create(superuser)
 
         # 5. Assign superadmin role to superuser (idempotent)
+        if superuser.id is None:
+            raise RuntimeError("Superuser was not assigned an identifier.")
         await rbac_repo.assign_role_to_user(superuser.id, superadmin_role.id)
 
         await session.commit()

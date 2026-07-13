@@ -77,7 +77,9 @@ def _map_error(exc: Exception) -> AppException:
     summary="Register a new user",
     dependencies=[Depends(rate_limit(3, 300))],
 )
-async def register(request: RegisterRequest, use_case: RegisterUserUseCase = Depends(get_register_use_case)):
+async def register(
+    request: RegisterRequest, use_case: RegisterUserUseCase = Depends(get_register_use_case)
+) -> SuccessEnvelope[UserResponse]:
     """Create a new user account.
 
     Validates the email, checks for duplicates, hashes the password
@@ -113,7 +115,7 @@ async def register(request: RegisterRequest, use_case: RegisterUserUseCase = Dep
 )
 async def update_status(
     uuid: str, request: UpdateUserStatusRequest, use_case: UpdateUserStatusUseCase = Depends(get_update_status_use_case)
-):
+) -> SuccessEnvelope[UserResponse]:
     """Update a user's account status.
 
     Allowed transitions: any valid status except **inactive**.
@@ -138,7 +140,9 @@ async def update_status(
     summary="Soft delete a user",
     dependencies=[Depends(require_permission("user:delete"))],
 )
-async def delete_user(uuid: str, use_case: DeleteUserUseCase = Depends(get_delete_use_case)):
+async def delete_user(
+    uuid: str, use_case: DeleteUserUseCase = Depends(get_delete_use_case)
+) -> SuccessEnvelope[UserResponse]:
     """Soft-delete a user by setting their status to **inactive**
     and recording the deletion timestamp in `deleted_at`.
     """
@@ -161,7 +165,9 @@ async def delete_user(uuid: str, use_case: DeleteUserUseCase = Depends(get_delet
     summary="Permanently delete a user",
     dependencies=[Depends(require_permission("user:delete"))],
 )
-async def prune_user(uuid: str, use_case: PruneUserUseCase = Depends(get_prune_use_case)):
+async def prune_user(
+    uuid: str, use_case: PruneUserUseCase = Depends(get_prune_use_case)
+) -> SuccessEnvelope[UserResponse]:
     """Permanently remove a user from the database.
 
     This action cannot be undone. Use the soft-delete endpoint
@@ -186,7 +192,9 @@ async def prune_user(uuid: str, use_case: PruneUserUseCase = Depends(get_prune_u
     summary="Get user by UUID",
     dependencies=[Depends(require_permission("user:read"))],
 )
-async def get_by_uuid(uuid: str, use_case: GetUserUseCase = Depends(get_user_query_use_case)):
+async def get_by_uuid(
+    uuid: str, use_case: GetUserUseCase = Depends(get_user_query_use_case)
+) -> SuccessEnvelope[UserResponse]:
     """Look up a user by their UUID v7 identifier."""
     command = GetUserByUuidQuery(uuid=uuid)
     try:
@@ -207,7 +215,9 @@ async def get_by_uuid(uuid: str, use_case: GetUserUseCase = Depends(get_user_que
     summary="Get user by username",
     dependencies=[Depends(require_permission("user:read"))],
 )
-async def get_by_username(username: str, use_case: GetUserUseCase = Depends(get_user_query_use_case)):
+async def get_by_username(
+    username: str, use_case: GetUserUseCase = Depends(get_user_query_use_case)
+) -> SuccessEnvelope[UserResponse]:
     """Look up a user by their unique username."""
     command = GetUserByUsernameQuery(username=username)
     try:
@@ -228,7 +238,9 @@ async def get_by_username(username: str, use_case: GetUserUseCase = Depends(get_
     summary="Get user by email",
     dependencies=[Depends(require_permission("user:read"))],
 )
-async def get_by_email(email: str, use_case: GetUserUseCase = Depends(get_user_query_use_case)):
+async def get_by_email(
+    email: str, use_case: GetUserUseCase = Depends(get_user_query_use_case)
+) -> SuccessEnvelope[UserResponse]:
     """Look up a user by their email address."""
     command = GetUserByEmailQuery(email=email)
     try:
@@ -250,7 +262,9 @@ async def get_by_email(email: str, use_case: GetUserUseCase = Depends(get_user_q
     summary="Restore a soft-deleted user",
     dependencies=[Depends(require_permission("user:update"))],
 )
-async def restore_user(uuid: str, use_case: RestoreUserUseCase = Depends(get_restore_user_use_case)):
+async def restore_user(
+    uuid: str, use_case: RestoreUserUseCase = Depends(get_restore_user_use_case)
+) -> SuccessEnvelope[UserResponse]:
     """Restore a soft-deleted user by their UUID.
 
     Clears the `deleted_at` timestamp and resets the status
@@ -280,7 +294,7 @@ async def list_users(
         default=DEFAULT_PAGE_SIZE, ge=1, le=MAX_PAGE_SIZE, description="Maximum number of records to return."
     ),
     use_case: ListUsersUseCase = Depends(get_list_users_use_case),
-):
+) -> SuccessEnvelope[UserListResponse]:
     """Retrieve a paginated list of users.
 
     Supports optional filtering by status and soft-deleted state.

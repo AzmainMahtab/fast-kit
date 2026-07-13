@@ -69,6 +69,6 @@ class CleanRoute(APIRoute):
     they are not explicitly set.
     """
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
         super().__init__(*args, **kwargs)
         self.response_model_exclude_none = True

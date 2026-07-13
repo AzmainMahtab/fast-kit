@@ -14,6 +14,10 @@ class InMemoryOtpRepository(IOtpRepository):
     def __init__(self) -> None:
         self._otps: dict[str, OneTimePassword] = {}
 
+    async def commit(self) -> None:
+        """No-op for the in-memory test double."""
+        return
+
     async def create(self, otp: OneTimePassword) -> OneTimePassword:
         from uuid import uuid4
 

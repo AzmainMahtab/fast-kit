@@ -112,19 +112,34 @@ async def test_list_cars_by_owner_returns_200(app, override_car_deps) -> None:
         await client.post(
             "/api/v1/cars",
             json={
-                "owner_id": 1, "make": "Toyota", "model": "Camry", "year": 2023, "color": "Blue", "license_plate": "P1"
+                "owner_id": 1,
+                "make": "Toyota",
+                "model": "Camry",
+                "year": 2023,
+                "color": "Blue",
+                "license_plate": "P1",
             },
         )
         await client.post(
             "/api/v1/cars",
             json={
-                "owner_id": 1, "make": "Honda", "model": "Civic", "year": 2022, "color": "Red", "license_plate": "P2"
+                "owner_id": 1,
+                "make": "Honda",
+                "model": "Civic",
+                "year": 2022,
+                "color": "Red",
+                "license_plate": "P2",
             },
         )
         await client.post(
             "/api/v1/cars",
             json={
-                "owner_id": 2, "make": "Ford", "model": "F-150", "year": 2021, "color": "Black", "license_plate": "P3"
+                "owner_id": 2,
+                "make": "Ford",
+                "model": "F-150",
+                "year": 2021,
+                "color": "Black",
+                "license_plate": "P3",
             },
         )
 
@@ -143,13 +158,23 @@ async def test_list_all_cars_returns_200(app, override_car_deps) -> None:
         await client.post(
             "/api/v1/cars",
             json={
-                "owner_id": 1, "make": "Toyota", "model": "Camry", "year": 2023, "color": "Blue", "license_plate": "P1"
+                "owner_id": 1,
+                "make": "Toyota",
+                "model": "Camry",
+                "year": 2023,
+                "color": "Blue",
+                "license_plate": "P1",
             },
         )
         await client.post(
             "/api/v1/cars",
             json={
-                "owner_id": 2, "make": "Honda", "model": "Civic", "year": 2022, "color": "Red", "license_plate": "P2"
+                "owner_id": 2,
+                "make": "Honda",
+                "model": "Civic",
+                "year": 2022,
+                "color": "Red",
+                "license_plate": "P2",
             },
         )
 

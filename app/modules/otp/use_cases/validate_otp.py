@@ -42,6 +42,7 @@ class ValidateOtpUseCase:
             otp_uuid = cached["uuid"]
             await self._cache.delete(f"{OTP_CACHE_PREFIX}{command.user_uuid}:{command.otp_type.value}")
             await self._otp_repo.mark_as_used(otp_uuid)
+            await self._otp_repo.commit()
             await self._event_bus.publish(
                 OtpValidatedEvent(user_uuid=command.user_uuid, otp_type=command.otp_type, otp_uuid=otp_uuid)
             )
@@ -66,6 +67,7 @@ class ValidateOtpUseCase:
         if otp.uuid is None:
             raise RuntimeError("OTP entity must have a UUID.")
         await self._otp_repo.mark_as_used(otp.uuid)
+        await self._otp_repo.commit()
         await self._cache.delete(f"{OTP_CACHE_PREFIX}{command.user_uuid}:{command.otp_type.value}")
 
         await self._event_bus.publish(

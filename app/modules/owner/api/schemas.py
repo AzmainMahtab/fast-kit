@@ -3,6 +3,7 @@ from datetime import date, datetime
 from pydantic import BaseModel, ConfigDict, Field
 
 from app.core.pagination import PaginatedResponse
+from app.modules.owner.domain.entities import Owner
 
 
 class CreateOwnerRequest(BaseModel):
@@ -23,7 +24,7 @@ class OwnerResponse(BaseModel):
     deleted_at: datetime | None = Field(default=None, description="Timestamp of soft deletion, if applicable.")
 
     @classmethod
-    def from_entity(cls, owner) -> OwnerResponse:
+    def from_entity(cls, owner: Owner) -> OwnerResponse:
         return cls(
             uuid=owner.uuid or "",
             user_id=owner.user_id,

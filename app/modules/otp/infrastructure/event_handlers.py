@@ -1,4 +1,6 @@
 import logging
+from collections.abc import Callable, Coroutine
+from typing import Any
 
 from app.core.cache import ICacheService
 from app.core.database import AsyncSessionLocal
@@ -13,7 +15,9 @@ from app.modules.otp.use_cases.generate_otp import GenerateOtpUseCase
 logger = logging.getLogger(__name__)
 
 
-def create_generate_login_otp_handler(cache: ICacheService, event_bus: IEventBus):
+def create_generate_login_otp_handler(
+    cache: ICacheService, event_bus: IEventBus
+) -> Callable[[UserLoggedInEvent], Coroutine[Any, Any, None]]:
     """Return an event handler that generates a login OTP when a user logs in."""
 
     async def handler(event: UserLoggedInEvent) -> None:
@@ -30,11 +34,7 @@ def create_generate_login_otp_handler(cache: ICacheService, event_bus: IEventBus
 
         expiry_minutes = OTP_EXPIRY_SECONDS[OtpType.LOGIN] // 60
         try:
-            await send_otp_email(
-                to_email=event.email,
-                code=result.code,
-                expiry_minutes=expiry_minutes,
-            )
+            await send_otp_email(to_email=event.email, code=result.code, expiry_minutes=expiry_minutes)
         except Exception:
             logger.exception("Failed to send OTP email to %s", event.email)
 

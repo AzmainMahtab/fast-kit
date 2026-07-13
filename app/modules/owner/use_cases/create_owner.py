@@ -14,11 +14,8 @@ class CreateOwnerUseCase:
         if existing:
             raise OwnerAlreadyExistsError(f"Owner for user {command.user_id} already exists.")
 
-        new_owner = Owner(
-            user_id=command.user_id,
-            address=command.address,
-            date_of_birth=command.date_of_birth,
-        )
+        new_owner = Owner(user_id=command.user_id, address=command.address, date_of_birth=command.date_of_birth)
 
         saved_owner = await self.owner_repo.create(new_owner)
+        await self.owner_repo.commit()
         return OwnerActionResult(owner=saved_owner)

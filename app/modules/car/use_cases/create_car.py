@@ -19,4 +19,5 @@ class CreateCarUseCase:
         )
 
         saved_car = await self.car_repo.create(new_car)
+        await self.car_repo.commit()
         return CarActionResult(car=saved_car)

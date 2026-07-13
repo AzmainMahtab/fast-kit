@@ -43,29 +43,25 @@ async def get_list_roles_use_case(repo: IRbacRepository = Depends(get_rbac_repo)
 
 
 async def get_assign_permission_use_case(
-    repo: IRbacRepository = Depends(get_rbac_repo),
-    cache: ICacheService = Depends(get_cache_service),
+    repo: IRbacRepository = Depends(get_rbac_repo), cache: ICacheService = Depends(get_cache_service)
 ) -> AssignPermissionToRoleUseCase:
     return AssignPermissionToRoleUseCase(rbac_repo=repo, cache=cache)
 
 
 async def get_revoke_permission_use_case(
-    repo: IRbacRepository = Depends(get_rbac_repo),
-    cache: ICacheService = Depends(get_cache_service),
+    repo: IRbacRepository = Depends(get_rbac_repo), cache: ICacheService = Depends(get_cache_service)
 ) -> RevokePermissionFromRoleUseCase:
     return RevokePermissionFromRoleUseCase(rbac_repo=repo, cache=cache)
 
 
 async def get_assign_role_use_case(
-    repo: IRbacRepository = Depends(get_rbac_repo),
-    cache: ICacheService = Depends(get_cache_service),
+    repo: IRbacRepository = Depends(get_rbac_repo), cache: ICacheService = Depends(get_cache_service)
 ) -> AssignRoleUseCase:
     return AssignRoleUseCase(rbac_repo=repo, cache=cache)
 
 
 async def get_revoke_role_use_case(
-    repo: IRbacRepository = Depends(get_rbac_repo),
-    cache: ICacheService = Depends(get_cache_service),
+    repo: IRbacRepository = Depends(get_rbac_repo), cache: ICacheService = Depends(get_cache_service)
 ) -> RevokeRoleUseCase:
     return RevokeRoleUseCase(rbac_repo=repo, cache=cache)
 

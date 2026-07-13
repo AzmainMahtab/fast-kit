@@ -14,7 +14,6 @@ from app.modules.rbac.api.dependencies import (
     get_get_role_use_case,
     get_get_user_permissions_use_case,
     get_get_user_role_assignments_use_case,
-    get_get_user_roles_use_case,
     get_list_permissions_use_case,
     get_list_roles_use_case,
     get_revoke_permission_use_case,
@@ -30,8 +29,8 @@ from app.modules.rbac.api.schemas import (
     RevokePermissionRequest,
     RevokeRoleRequest,
     RoleListResponse,
-    RolePermissionsResponse,
     RolePermissionAssignmentItem,
+    RolePermissionsResponse,
     RoleResponse,
     UserPermissionsResponse,
     UserRoleAssignmentItem,
@@ -73,11 +72,11 @@ from app.modules.rbac.use_cases.get_role import GetRoleUseCase
 from app.modules.rbac.use_cases.get_role_permission_assignments import GetRolePermissionAssignmentsUseCase
 from app.modules.rbac.use_cases.get_user_permissions import GetUserPermissionsUseCase
 from app.modules.rbac.use_cases.get_user_role_assignments import GetUserRoleAssignmentsUseCase
-from app.modules.rbac.use_cases.get_user_roles import GetUserRolesUseCase
 from app.modules.rbac.use_cases.list_permissions import ListPermissionsUseCase
 from app.modules.rbac.use_cases.list_roles import ListRolesUseCase
 from app.modules.rbac.use_cases.revoke_permission import RevokePermissionFromRoleUseCase
 from app.modules.rbac.use_cases.revoke_role import RevokeRoleUseCase
+from app.modules.user.domain.entities import User
 
 router = APIRouter(prefix="/rbac", tags=["rbac"], route_class=CleanRoute)
 
@@ -92,6 +91,7 @@ def _map_rbac_error(exc: Exception) -> AppException:
 
 # Permissions
 
+
 @router.post(
     "/permissions",
     response_model=SuccessEnvelope[PermissionResponse],
@@ -105,14 +105,10 @@ def _map_rbac_error(exc: Exception) -> AppException:
     summary="Create a new permission",
 )
 async def create_permission(
-    request: CreatePermissionRequest,
-    use_case: CreatePermissionUseCase = Depends(get_create_permission_use_case),
-):
+    request: CreatePermissionRequest, use_case: CreatePermissionUseCase = Depends(get_create_permission_use_case)
+) -> SuccessEnvelope[PermissionResponse]:
     command = CreatePermissionCommand(
-        name=request.name,
-        description=request.description,
-        resource=request.resource,
-        action=request.action,
+        name=request.name, description=request.description, resource=request.resource, action=request.action
     )
     try:
         result = await use_case.execute(command)
@@ -138,7 +134,7 @@ async def list_permissions(
         default=DEFAULT_PAGE_SIZE, ge=1, le=MAX_PAGE_SIZE, description="Maximum number of records to return."
     ),
     use_case: ListPermissionsUseCase = Depends(get_list_permissions_use_case),
-):
+) -> SuccessEnvelope[PermissionListResponse]:
     query = ListPermissionsQuery(pagination=PaginationParams(offset=offset, limit=limit))
     result = await use_case.execute(query)
 
@@ -155,6 +151,7 @@ async def list_permissions(
 
 # Roles
 
+
 @router.post(
     "/roles",
     response_model=SuccessEnvelope[RoleResponse],
@@ -168,9 +165,8 @@ async def list_permissions(
     summary="Create a new role",
 )
 async def create_role(
-    request: CreateRoleRequest,
-    use_case: CreateRoleUseCase = Depends(get_create_role_use_case),
-):
+    request: CreateRoleRequest, use_case: CreateRoleUseCase = Depends(get_create_role_use_case)
+) -> SuccessEnvelope[RoleResponse]:
     command = CreateRoleCommand(name=request.name, description=request.description)
     try:
         result = await use_case.execute(command)
@@ -196,7 +192,7 @@ async def list_roles(
         default=DEFAULT_PAGE_SIZE, ge=1, le=MAX_PAGE_SIZE, description="Maximum number of records to return."
     ),
     use_case: ListRolesUseCase = Depends(get_list_roles_use_case),
-):
+) -> SuccessEnvelope[RoleListResponse]:
     query = ListRolesQuery(pagination=PaginationParams(offset=offset, limit=limit))
     result = await use_case.execute(query)
 
@@ -223,9 +219,8 @@ async def list_roles(
     summary="Get role by UUID",
 )
 async def get_role_by_uuid(
-    uuid: str,
-    use_case: GetRoleUseCase = Depends(get_get_role_use_case),
-):
+    uuid: str, use_case: GetRoleUseCase = Depends(get_get_role_use_case)
+) -> SuccessEnvelope[RoleResponse]:
     query = GetRoleByUuidQuery(uuid=uuid)
     try:
         role = await use_case.by_uuid(query)
@@ -237,9 +232,10 @@ async def get_role_by_uuid(
 
 # Role <-> Permission
 
+
 @router.post(
     "/roles/{role_uuid}/permissions",
-    response_model=SuccessEnvelope[dict],
+    response_model=SuccessEnvelope[dict[str, str]],
     dependencies=[Depends(require_permission("rbac:role:assign_permission"))],
     responses={
         401: {"model": ErrorEnvelope, "description": "Unauthorized"},
@@ -253,12 +249,10 @@ async def assign_permission_to_role(
     role_uuid: str,
     request: AssignPermissionRequest,
     use_case: AssignPermissionToRoleUseCase = Depends(get_assign_permission_use_case),
-    current_user=Depends(require_authenticated_user),
-):
+    current_user: User = Depends(require_authenticated_user),
+) -> SuccessEnvelope[dict[str, str]]:
     command = AssignPermissionToRoleCommand(
-        role_uuid=role_uuid,
-        permission_uuid=request.permission_uuid,
-        assigned_by=current_user.id,
+        role_uuid=role_uuid, permission_uuid=request.permission_uuid, assigned_by=current_user.id
     )
     try:
         await use_case.execute(command)
@@ -270,7 +264,7 @@ async def assign_permission_to_role(
 
 @router.delete(
     "/roles/{role_uuid}/permissions",
-    response_model=SuccessEnvelope[dict],
+    response_model=SuccessEnvelope[dict[str, str]],
     dependencies=[Depends(require_permission("rbac:role:revoke_permission"))],
     responses={
         401: {"model": ErrorEnvelope, "description": "Unauthorized"},
@@ -284,7 +278,7 @@ async def revoke_permission_from_role(
     role_uuid: str,
     request: RevokePermissionRequest,
     use_case: RevokePermissionFromRoleUseCase = Depends(get_revoke_permission_use_case),
-):
+) -> SuccessEnvelope[dict[str, str]]:
     command = RevokePermissionFromRoleCommand(role_uuid=role_uuid, permission_uuid=request.permission_uuid)
     try:
         await use_case.execute(command)
@@ -308,7 +302,7 @@ async def revoke_permission_from_role(
 async def get_role_permissions(
     role_uuid: str,
     use_case: GetRolePermissionAssignmentsUseCase = Depends(get_get_role_permission_assignments_use_case),
-):
+) -> SuccessEnvelope[RolePermissionsResponse]:
     query = GetRoleByUuidQuery(uuid=role_uuid)
     try:
         result = await use_case.by_uuid(query)
@@ -333,9 +327,10 @@ async def get_role_permissions(
 
 # User <-> Role
 
+
 @router.post(
     "/roles/{role_uuid}/users",
-    response_model=SuccessEnvelope[dict],
+    response_model=SuccessEnvelope[dict[str, str]],
     dependencies=[Depends(require_permission("rbac:role:assign_user"))],
     responses={
         401: {"model": ErrorEnvelope, "description": "Unauthorized"},
@@ -349,13 +344,9 @@ async def assign_role_to_user(
     role_uuid: str,
     request: AssignRoleRequest,
     use_case: AssignRoleUseCase = Depends(get_assign_role_use_case),
-    current_user=Depends(require_authenticated_user),
-):
-    command = AssignRoleCommand(
-        user_id=request.user_id,
-        role_uuid=role_uuid,
-        assigned_by=current_user.id,
-    )
+    current_user: User = Depends(require_authenticated_user),
+) -> SuccessEnvelope[dict[str, str]]:
+    command = AssignRoleCommand(user_id=request.user_id, role_uuid=role_uuid, assigned_by=current_user.id)
     try:
         await use_case.execute(command)
     except (RoleNotFoundError, RoleAlreadyAssignedError) as e:
@@ -366,7 +357,7 @@ async def assign_role_to_user(
 
 @router.delete(
     "/roles/{role_uuid}/users",
-    response_model=SuccessEnvelope[dict],
+    response_model=SuccessEnvelope[dict[str, str]],
     dependencies=[Depends(require_permission("rbac:role:revoke_user"))],
     responses={
         401: {"model": ErrorEnvelope, "description": "Unauthorized"},
@@ -377,10 +368,8 @@ async def assign_role_to_user(
     summary="Revoke a role from a user",
 )
 async def revoke_role_from_user(
-    role_uuid: str,
-    request: RevokeRoleRequest,
-    use_case: RevokeRoleUseCase = Depends(get_revoke_role_use_case),
-):
+    role_uuid: str, request: RevokeRoleRequest, use_case: RevokeRoleUseCase = Depends(get_revoke_role_use_case)
+) -> SuccessEnvelope[dict[str, str]]:
     command = RevokeRoleCommand(user_id=request.user_id, role_uuid=role_uuid)
     try:
         await use_case.execute(command)
@@ -391,6 +380,7 @@ async def revoke_role_from_user(
 
 
 # User permissions / roles lookups
+
 
 @router.get(
     "/users/{user_id}/permissions",
@@ -403,17 +393,12 @@ async def revoke_role_from_user(
     summary="Get all permissions for a user",
 )
 async def get_user_permissions(
-    user_id: int,
-    use_case: GetUserPermissionsUseCase = Depends(get_get_user_permissions_use_case),
-):
+    user_id: int, use_case: GetUserPermissionsUseCase = Depends(get_get_user_permissions_use_case)
+) -> SuccessEnvelope[UserPermissionsResponse]:
     query = GetUserPermissionsQuery(user_id=user_id)
     result = await use_case.execute(query)
     return SuccessEnvelope(
-        statusCode=200,
-        data=UserPermissionsResponse(
-            user_id=user_id,
-            permissions=[p.name for p in result.permissions],
-        ),
+        statusCode=200, data=UserPermissionsResponse(user_id=user_id, permissions=[p.name for p in result.permissions])
     )
 
 
@@ -428,9 +413,8 @@ async def get_user_permissions(
     summary="Get all roles for a user with audit metadata",
 )
 async def get_user_roles(
-    user_id: int,
-    use_case: GetUserRoleAssignmentsUseCase = Depends(get_get_user_role_assignments_use_case),
-):
+    user_id: int, use_case: GetUserRoleAssignmentsUseCase = Depends(get_get_user_role_assignments_use_case)
+) -> SuccessEnvelope[UserRolesResponse]:
     query = GetUserRolesQuery(user_id=user_id)
     result = await use_case.execute(query)
     return SuccessEnvelope(
@@ -438,11 +422,7 @@ async def get_user_roles(
         data=UserRolesResponse(
             user_id=user_id,
             roles=[
-                UserRoleAssignmentItem(
-                    role_name=a.role.name,
-                    assigned_by=a.assigned_by,
-                    assigned_at=a.assigned_at,
-                )
+                UserRoleAssignmentItem(role_name=a.role.name, assigned_by=a.assigned_by, assigned_at=a.assigned_at)
                 for a in result.assignments
             ],
         ),
@@ -451,7 +431,7 @@ async def get_user_roles(
 
 @router.get(
     "/users/{user_id}/check",
-    response_model=SuccessEnvelope[dict],
+    response_model=SuccessEnvelope[dict[str, bool]],
     dependencies=[Depends(require_permission("rbac:user:check_permission"))],
     responses={
         401: {"model": ErrorEnvelope, "description": "Unauthorized"},
@@ -463,10 +443,7 @@ async def check_user_permission(
     user_id: int,
     permission: str = Query(description="Permission name to check (e.g. user:create)."),
     use_case: CheckPermissionUseCase = Depends(get_check_permission_use_case),
-):
+) -> SuccessEnvelope[dict[str, bool]]:
     query = CheckUserPermissionQuery(user_id=user_id, permission_name=permission)
     result = await use_case.execute(query)
-    return SuccessEnvelope(
-        statusCode=200,
-        data={"has_permission": result.has_permission},
-    )
+    return SuccessEnvelope(statusCode=200, data={"has_permission": result.has_permission})

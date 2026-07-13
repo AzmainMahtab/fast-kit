@@ -5,6 +5,11 @@ from app.modules.rbac.domain.entities import Permission, Role, RolePermissionAss
 
 
 class IRbacRepository(ABC):
+    @abstractmethod
+    async def commit(self) -> None:
+        """Persist all pending changes to the underlying store."""
+        pass
+
     # Permissions
     @abstractmethod
     async def create_permission(self, permission: Permission) -> Permission:
@@ -19,10 +24,7 @@ class IRbacRepository(ABC):
         pass
 
     @abstractmethod
-    async def list_permissions(
-        self,
-        pagination: PaginationParams = PaginationParams(),
-    ) -> tuple[list[Permission], int]:
+    async def list_permissions(self, pagination: PaginationParams = PaginationParams()) -> tuple[list[Permission], int]:
         pass
 
     # Roles
@@ -39,17 +41,12 @@ class IRbacRepository(ABC):
         pass
 
     @abstractmethod
-    async def list_roles(
-        self,
-        pagination: PaginationParams = PaginationParams(),
-    ) -> tuple[list[Role], int]:
+    async def list_roles(self, pagination: PaginationParams = PaginationParams()) -> tuple[list[Role], int]:
         pass
 
     # Role <-> Permission
     @abstractmethod
-    async def assign_permission_to_role(
-        self, role_id: int, permission_id: int, assigned_by: int | None = None
-    ) -> None:
+    async def assign_permission_to_role(self, role_id: int, permission_id: int, assigned_by: int | None = None) -> None:
         pass
 
     @abstractmethod
@@ -62,9 +59,7 @@ class IRbacRepository(ABC):
 
     # User <-> Role
     @abstractmethod
-    async def assign_role_to_user(
-        self, user_id: int, role_id: int, assigned_by: int | None = None
-    ) -> None:
+    async def assign_role_to_user(self, user_id: int, role_id: int, assigned_by: int | None = None) -> None:
         pass
 
     @abstractmethod

@@ -50,8 +50,8 @@ async def test_login_publishes_event_on_success(
     import app.modules.auth.use_cases.login as login_module
 
     original_verify = login_module.verify_password
-    login_module.verify_password = lambda pw, hp: True
-    login_module.need_to_rehash = lambda hp: False
+    login_module.verify_password = lambda pw, hp: True  # type: ignore[assignment]
+    login_module.need_to_rehash = lambda hp: False  # type: ignore[assignment]
 
     received_events: list[UserLoggedInEvent] = []
 

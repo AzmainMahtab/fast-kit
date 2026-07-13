@@ -11,6 +11,10 @@ class InMemoryOwnerRepository(IOwnerRepository):
         self._owners: dict[int, Owner] = {}
         self._next_id = 1
 
+    async def commit(self) -> None:
+        """No-op for the in-memory test double."""
+        return
+
     def _find_by(self, predicate) -> Owner | None:
         for owner in self._owners.values():
             if predicate(owner):
@@ -34,10 +38,7 @@ class InMemoryOwnerRepository(IOwnerRepository):
         self._owners[owner.id] = owner
         return owner
 
-    async def list_all(
-        self,
-        pagination: PaginationParams = PaginationParams(),
-    ) -> tuple[list[Owner], int]:
+    async def list_all(self, pagination: PaginationParams = PaginationParams()) -> tuple[list[Owner], int]:
         filtered = list(self._owners.values())
         total = len(filtered)
         return filtered[pagination.offset : pagination.offset + pagination.limit], total

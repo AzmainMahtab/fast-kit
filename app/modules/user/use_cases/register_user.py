@@ -56,6 +56,7 @@ class RegisterUserUseCase:
             new_user.is_superuser = True
 
         saved_user = await self.user_repo.create(new_user)
+        await self.user_repo.commit()
 
         event = UserRegisteredEvent(
             email=email_vo,

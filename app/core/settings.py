@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from pydantic import EmailStr, model_validator
+from pydantic import EmailStr, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -79,10 +79,42 @@ class Settings(BaseSettings):
     DEFAULT_PAGE_SIZE: int = 20
     MAX_PAGE_SIZE: int = 100
 
+    @field_validator("ENVIRONMENT")
+    @classmethod
+    def _validate_environment(cls, value: str) -> str:
+        allowed = {"local", "staging", "production", "test"}
+        if value not in allowed:
+            raise ValueError(f"ENVIRONMENT must be one of {allowed!r}, got {value!r}")
+        return value
+
     @model_validator(mode="after")
     def _validate_security(self) -> Settings:
+        placeholder = "REPLACE_WITH_64_CHAR_RANDOM_STRING_IN_PRODUCTION"
         if not self.JWT_SECRET_KEY or len(self.JWT_SECRET_KEY) < 32:
             raise ValueError("JWT_SECRET_KEY must be set and at least 32 characters long.")
+        if placeholder == self.JWT_SECRET_KEY:
+            raise ValueError("JWT_SECRET_KEY cannot be the example placeholder value.")
+        return self
+
+    @model_validator(mode="after")
+    def _validate_production(self) -> Settings:
+        if self.ENVIRONMENT != "production":
+            return self
+
+        if self.FIRST_SUPERUSER_PASSWORD and len(self.FIRST_SUPERUSER_PASSWORD) < 12:
+            raise ValueError("FIRST_SUPERUSER_PASSWORD must be at least 12 characters in production.")
+
+        required = {
+            "POSTGRES_HOST": self.POSTGRES_HOST,
+            "POSTGRES_USER": self.POSTGRES_USER,
+            "POSTGRES_PASSWORD": self.POSTGRES_PASSWORD,
+            "POSTGRES_DB": self.POSTGRES_DB,
+            "REDIS_URL": self.REDIS_URL,
+        }
+        missing = [name for name, value in required.items() if not value]
+        if missing:
+            raise ValueError(f"Production settings missing for: {', '.join(missing)}")
+
         return self
 
 
