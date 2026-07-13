@@ -19,10 +19,7 @@ from app.modules.owner.use_cases.list_owners import ListOwnersUseCase
 
 router = APIRouter(prefix="/owners", tags=["owners"], route_class=CleanRoute)
 
-DOMAIN_TO_APP = {
-    OwnerNotFoundError: ("OWNER_NOT_FOUND", 404),
-    OwnerAlreadyExistsError: ("OWNER_ALREADY_EXISTS", 409),
-}
+DOMAIN_TO_APP = {OwnerNotFoundError: ("OWNER_NOT_FOUND", 404), OwnerAlreadyExistsError: ("OWNER_ALREADY_EXISTS", 409)}
 
 
 def _map_error(exc: Exception) -> AppException:
@@ -44,12 +41,10 @@ def _map_error(exc: Exception) -> AppException:
     summary="Create a new owner",
     dependencies=[Depends(require_permission("owner:create"))],
 )
-async def create_owner(request: CreateOwnerRequest, use_case: CreateOwnerUseCase = Depends(get_create_owner_use_case)):
-    command = CreateOwnerCommand(
-        user_id=request.user_id,
-        address=request.address,
-        date_of_birth=request.date_of_birth,
-    )
+async def create_owner(
+    request: CreateOwnerRequest, use_case: CreateOwnerUseCase = Depends(get_create_owner_use_case)
+) -> SuccessEnvelope[OwnerResponse]:
+    command = CreateOwnerCommand(user_id=request.user_id, address=request.address, date_of_birth=request.date_of_birth)
     try:
         result = await use_case.execute(command)
     except OwnerAlreadyExistsError as e:
@@ -68,7 +63,9 @@ async def create_owner(request: CreateOwnerRequest, use_case: CreateOwnerUseCase
     summary="Get owner by UUID",
     dependencies=[Depends(require_permission("owner:read"))],
 )
-async def get_by_uuid(uuid: str, use_case: GetOwnerUseCase = Depends(get_get_owner_use_case)):
+async def get_by_uuid(
+    uuid: str, use_case: GetOwnerUseCase = Depends(get_get_owner_use_case)
+) -> SuccessEnvelope[OwnerResponse]:
     query = GetOwnerByUuidQuery(uuid=uuid)
     try:
         owner = await use_case.by_uuid(query)
@@ -88,7 +85,9 @@ async def get_by_uuid(uuid: str, use_case: GetOwnerUseCase = Depends(get_get_own
     summary="Get owner by user ID",
     dependencies=[Depends(require_permission("owner:read"))],
 )
-async def get_by_user_id(user_id: int, use_case: GetOwnerUseCase = Depends(get_get_owner_use_case)):
+async def get_by_user_id(
+    user_id: int, use_case: GetOwnerUseCase = Depends(get_get_owner_use_case)
+) -> SuccessEnvelope[OwnerResponse]:
     query = GetOwnerByUserIdQuery(user_id=user_id)
     try:
         owner = await use_case.by_user_id(query)
@@ -111,7 +110,7 @@ async def list_owners(
         default=DEFAULT_PAGE_SIZE, ge=1, le=MAX_PAGE_SIZE, description="Maximum number of records to return."
     ),
     use_case: ListOwnersUseCase = Depends(get_list_owners_use_case),
-):
+) -> SuccessEnvelope[OwnerListResponse]:
     query = ListOwnersQuery(pagination=PaginationParams(offset=offset, limit=limit))
     result = await use_case.execute(query)
 

@@ -1,3 +1,5 @@
+from typing import cast
+
 from fastapi import Depends, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -15,11 +17,11 @@ async def get_otp_repo(db: AsyncSession = Depends(get_db)) -> IOtpRepository:
 
 
 def get_cache_service(request: Request) -> ICacheService:
-    return request.app.state.cache_service
+    return cast(ICacheService, request.app.state.cache_service)
 
 
 def get_event_bus(request: Request) -> IEventBus:
-    return request.app.state.event_bus
+    return cast(IEventBus, request.app.state.event_bus)
 
 
 async def get_generate_otp_use_case(

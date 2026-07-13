@@ -7,6 +7,11 @@ from app.modules.user.domain.value_objects import Email
 
 class IUserRepository(ABC):
     @abstractmethod
+    async def commit(self) -> None:
+        """Persist all pending changes to the underlying store."""
+        pass
+
+    @abstractmethod
     async def get_by_email(self, email: Email) -> User | None:
         pass
 

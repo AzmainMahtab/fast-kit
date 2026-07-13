@@ -3,6 +3,7 @@ from datetime import datetime
 from pydantic import BaseModel, ConfigDict, Field
 
 from app.core.pagination import PaginatedResponse
+from app.modules.car.domain.entities import Car
 
 
 class CreateCarRequest(BaseModel):
@@ -29,7 +30,7 @@ class CarResponse(BaseModel):
     deleted_at: datetime | None = Field(default=None, description="Timestamp of soft deletion, if applicable.")
 
     @classmethod
-    def from_entity(cls, car) -> CarResponse:
+    def from_entity(cls, car: Car) -> CarResponse:
         return cls(
             uuid=car.uuid or "",
             owner_id=car.owner_id,

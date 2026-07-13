@@ -28,12 +28,12 @@ def _map_otp_error(exc: Exception) -> AppException:
     "/validate",
     response_model=SuccessEnvelope[ValidateOtpResponse],
     status_code=status.HTTP_200_OK,
-    responses={
-        401: {"model": ErrorEnvelope, "description": "Invalid, expired, or already-used OTP"},
-    },
+    responses={401: {"model": ErrorEnvelope, "description": "Invalid, expired, or already-used OTP"}},
     summary="Validate an OTP code",
 )
-async def validate_otp(request: ValidateOtpRequest, use_case: ValidateOtpUseCase = Depends(get_validate_otp_use_case)):
+async def validate_otp(
+    request: ValidateOtpRequest, use_case: ValidateOtpUseCase = Depends(get_validate_otp_use_case)
+) -> SuccessEnvelope[ValidateOtpResponse]:
     """Validate a one-time password (OTP) for a user.
 
     Checks the cache first for fast validation; falls back to the database

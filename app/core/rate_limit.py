@@ -30,9 +30,7 @@ class RateLimiter:
             await self._cache.set_ttl(key, count, self._window)
         if count > self._max:
             raise AppException(
-                code="RATE_LIMITED",
-                status_code=429,
-                detail="Too many requests. Please try again later.",
+                code="RATE_LIMITED", status_code=429, detail="Too many requests. Please try again later."
             )
 
 

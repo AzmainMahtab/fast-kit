@@ -1,4 +1,5 @@
 from collections.abc import AsyncGenerator
+from contextlib import asynccontextmanager
 
 from sqlalchemy import DateTime, func
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
@@ -11,17 +12,29 @@ engine = create_async_engine(settings.ASYNC_DATABASE_URL, echo=settings.DEBUG)
 AsyncSessionLocal = async_sessionmaker(bind=engine, expire_on_commit=False, class_=AsyncSession)
 
 
+@asynccontextmanager
+async def unit_of_work() -> AsyncGenerator[AsyncSession]:
+    """Explicit transactional boundary for write operations.
+
+    Use cases that mutate state should wrap their work in this context
+    manager so commits and rollbacks are explicit and centralized.
+    """
+    session = AsyncSessionLocal()
+    try:
+        yield session
+        await session.commit()
+    except Exception:
+        await session.rollback()
+        raise
+    finally:
+        await session.close()
+
+
 # This is what injects into our FastAPI routes: `db: Session = Depends(get_db)`
+# It is read-only by design; write use cases must use `unit_of_work()`.
 async def get_db() -> AsyncGenerator[AsyncSession]:
     async with AsyncSessionLocal() as session:
-        try:
-            yield session
-            await session.commit()
-        except Exception:
-            await session.rollback()
-            raise
-        finally:
-            await session.close()
+        yield session
 
 
 class Base(DeclarativeBase):

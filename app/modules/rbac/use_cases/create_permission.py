@@ -15,10 +15,8 @@ class CreatePermissionUseCase:
             raise PermissionAlreadyExistsError(f"Permission '{command.name}' already exists.")
 
         permission = Permission(
-            name=command.name,
-            description=command.description,
-            resource=command.resource,
-            action=command.action,
+            name=command.name, description=command.description, resource=command.resource, action=command.action
         )
         saved = await self.rbac_repo.create_permission(permission)
+        await self.rbac_repo.commit()
         return PermissionActionResult(permission=saved)

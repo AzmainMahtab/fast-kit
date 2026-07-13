@@ -14,11 +14,7 @@ from app.modules.user.domain.interfaces import IUserRepository
 
 class ActivateAccountUseCase:
     def __init__(
-        self,
-        user_repo: IUserRepository,
-        otp_repo: IOtpRepository,
-        cache: ICacheService,
-        event_bus: IEventBus,
+        self, user_repo: IUserRepository, otp_repo: IOtpRepository, cache: ICacheService, event_bus: IEventBus
     ):
         self._user_repo = user_repo
         self._otp_repo = otp_repo
@@ -40,6 +36,7 @@ class ActivateAccountUseCase:
 
         user.verify()
         await self._user_repo.update(user)
+        await self._user_repo.commit()
 
         await self._event_bus.publish(UserUpdatedEvent(user_uuid=str(user.uuid), email=user.email.value))
 

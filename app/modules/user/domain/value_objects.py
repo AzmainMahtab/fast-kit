@@ -8,7 +8,7 @@ class Email:
 
     value: str
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         if not re.match(r"^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+$", self.value):
             raise ValueError(f"Invalid email format: {self.value}")
 
@@ -26,7 +26,7 @@ class PlainPassword:
 
     value: str
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         """enforces the same rules regardless of how the use case is invoked (HTTP, CLI, background jobs)"""
 
         if len(self.value) < 8:
@@ -43,7 +43,7 @@ class PhoneNumber:
 
     value: str
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         """enforces the same rules regardless of how the use case is invoked (HTTP, CLI, background jobs)"""
 
         if not re.match(r"^\+[1-9]\d{1,14}$", self.value):

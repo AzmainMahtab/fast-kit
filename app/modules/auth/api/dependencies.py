@@ -1,3 +1,6 @@
+from collections.abc import Callable
+from typing import TYPE_CHECKING, Any, cast
+
 import jwt as pyjwt
 from fastapi import Depends, Request
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
@@ -17,6 +20,7 @@ from app.modules.auth.use_cases.login import LoginUseCase
 from app.modules.auth.use_cases.logout import LogoutUseCase
 from app.modules.auth.use_cases.profile import GetProfileUseCase
 from app.modules.auth.use_cases.refresh import RefreshTokenUseCase
+from app.modules.otp.domain.interfaces import IOtpRepository
 from app.modules.rbac.domain.interfaces import IRbacRepository
 from app.modules.rbac.infrastructure.persistence.repository import SQLAlchemyRbacRepository
 from app.modules.user.domain.entities import User, UserStatus
@@ -60,7 +64,7 @@ def get_event_bus(request: Request) -> IEventBus:
     Returns:
         The ``InMemoryEventBus`` instance stored on ``app.state``.
     """
-    return request.app.state.event_bus
+    return cast(IEventBus, request.app.state.event_bus)
 
 
 async def get_user_repo(db: AsyncSession = Depends(get_db)) -> IUserRepository:
@@ -131,7 +135,12 @@ async def get_profile_use_case(
     return GetProfileUseCase(user_repo=repo, cache=cache)
 
 
-async def get_otp_repo(db: AsyncSession = Depends(get_db)):
+if TYPE_CHECKING:
+    from app.modules.auth.use_cases.activate_account import ActivateAccountUseCase
+    from app.modules.auth.use_cases.send_activation_otp import SendActivationOtpUseCase
+
+
+async def get_otp_repo(db: AsyncSession = Depends(get_db)) -> IOtpRepository:
     from app.modules.otp.infrastructure.persistence.repository import SQLAlchemyOtpRepository
 
     return SQLAlchemyOtpRepository(db)
@@ -139,10 +148,10 @@ async def get_otp_repo(db: AsyncSession = Depends(get_db)):
 
 async def get_send_activation_otp_use_case(
     user_repo: IUserRepository = Depends(get_user_repo),
-    otp_repo=Depends(get_otp_repo),
+    otp_repo: IOtpRepository = Depends(get_otp_repo),
     cache: ICacheService = Depends(get_cache_service),
     event_bus: IEventBus = Depends(get_event_bus),
-):
+) -> SendActivationOtpUseCase:
     from app.modules.auth.use_cases.send_activation_otp import SendActivationOtpUseCase
 
     return SendActivationOtpUseCase(user_repo=user_repo, otp_repo=otp_repo, cache=cache, event_bus=event_bus)
@@ -150,10 +159,10 @@ async def get_send_activation_otp_use_case(
 
 async def get_activate_account_use_case(
     user_repo: IUserRepository = Depends(get_user_repo),
-    otp_repo=Depends(get_otp_repo),
+    otp_repo: IOtpRepository = Depends(get_otp_repo),
     cache: ICacheService = Depends(get_cache_service),
     event_bus: IEventBus = Depends(get_event_bus),
-):
+) -> ActivateAccountUseCase:
     from app.modules.auth.use_cases.activate_account import ActivateAccountUseCase
 
     return ActivateAccountUseCase(user_repo=user_repo, otp_repo=otp_repo, cache=cache, event_bus=event_bus)
@@ -198,7 +207,7 @@ async def require_authenticated(
     if await cache.exists(f"token:blacklist:{jti}"):
         raise TokenBlacklistedError("Access token has been revoked.")
 
-    return payload["sub"]
+    return cast(str, payload["sub"])
 
 
 async def require_authenticated_user(
@@ -244,7 +253,7 @@ async def require_authenticated_user(
     if await cache.exists(f"token:blacklist:{jti}"):
         raise TokenBlacklistedError("Access token has been revoked.")
 
-    user_uuid = payload["sub"]
+    user_uuid = cast(str, payload["sub"])
     user = await repo.get_by_uuid(user_uuid)
     if not user:
         raise InvalidTokenError("User not found.")
@@ -257,7 +266,7 @@ async def require_authenticated_user(
     return user
 
 
-def require_permission(permission: str):
+def require_permission(permission: str) -> Callable[..., Any]:
     """Factory that returns a FastAPI dependency enforcing a specific permission.
 
     Usage::
@@ -279,6 +288,9 @@ def require_permission(permission: str):
     ) -> User:
         if user.is_superuser:
             return user
+
+        if user.id is None:
+            raise InvalidTokenError("User identifier is missing.")
 
         cache_key = f"user_permissions:{user.id}"
         cached_perms = await cache.get(cache_key)

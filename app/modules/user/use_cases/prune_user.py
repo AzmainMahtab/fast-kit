@@ -17,5 +17,6 @@ class PruneUserUseCase:
             raise UserNotFoundError(f"User with uuid {command.uuid} not found.")
 
         await self.user_repo.delete(command.uuid)
+        await self.user_repo.commit()
         await self._event_bus.publish(UserUpdatedEvent(user_uuid=str(user.uuid), email=user.email.value))
         return UserActionResult(user=user)

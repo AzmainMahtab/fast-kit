@@ -17,7 +17,7 @@ async def check_database() -> bool:
 async def check_redis() -> bool:
     try:
         client = aioredis.from_url(settings.REDIS_URL, socket_connect_timeout=3)
-        await client.execute_command("PING")
+        await client.execute_command("PING")  # type: ignore[no-untyped-call]
         await client.aclose()
         return True
     except Exception:

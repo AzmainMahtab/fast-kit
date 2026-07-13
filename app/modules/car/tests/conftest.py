@@ -11,6 +11,10 @@ class InMemoryCarRepository(ICarRepository):
         self._cars: dict[int, Car] = {}
         self._next_id = 1
 
+    async def commit(self) -> None:
+        """No-op for the in-memory test double."""
+        return
+
     def _find_by(self, predicate) -> Car | None:
         for car in self._cars.values():
             if predicate(car):
@@ -32,18 +36,13 @@ class InMemoryCarRepository(ICarRepository):
         return car
 
     async def list_by_owner(
-        self,
-        owner_id: int,
-        pagination: PaginationParams = PaginationParams(),
+        self, owner_id: int, pagination: PaginationParams = PaginationParams()
     ) -> tuple[list[Car], int]:
         filtered = [c for c in self._cars.values() if c.owner_id == owner_id]
         total = len(filtered)
         return filtered[pagination.offset : pagination.offset + pagination.limit], total
 
-    async def list_all(
-        self,
-        pagination: PaginationParams = PaginationParams(),
-    ) -> tuple[list[Car], int]:
+    async def list_all(self, pagination: PaginationParams = PaginationParams()) -> tuple[list[Car], int]:
         filtered = list(self._cars.values())
         total = len(filtered)
         return filtered[pagination.offset : pagination.offset + pagination.limit], total

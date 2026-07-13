@@ -1,15 +1,11 @@
-from datetime import datetime, timezone
+from datetime import UTC, datetime
+from typing import Any
 
 import pytest
 import uuid_utils
 
 from app.core.pagination import PaginationParams
-from app.modules.rbac.domain.entities import (
-    Permission,
-    Role,
-    RolePermissionAssignment,
-    UserRoleAssignment,
-)
+from app.modules.rbac.domain.entities import Permission, Role, RolePermissionAssignment, UserRoleAssignment
 from app.modules.rbac.domain.interfaces import IRbacRepository
 
 
@@ -19,10 +15,14 @@ class InMemoryRbacRepository(IRbacRepository):
         self._roles: dict[int, Role] = {}
         self._role_permissions: dict[int, set[int]] = {}
         self._user_roles: dict[int, set[int]] = {}
-        self._role_permission_meta: dict[tuple[int, int], dict] = {}
-        self._user_role_meta: dict[tuple[int, int], dict] = {}
+        self._role_permission_meta: dict[tuple[int, int], dict[str, Any]] = {}
+        self._user_role_meta: dict[tuple[int, int], dict[str, Any]] = {}
         self._next_perm_id = 1
         self._next_role_id = 1
+
+    async def commit(self) -> None:
+        """No-op for the in-memory test double."""
+        return
 
     # Permissions
 
@@ -45,10 +45,7 @@ class InMemoryRbacRepository(IRbacRepository):
                 return p
         return None
 
-    async def list_permissions(
-        self,
-        pagination: PaginationParams = PaginationParams(),
-    ) -> tuple[list[Permission], int]:
+    async def list_permissions(self, pagination: PaginationParams = PaginationParams()) -> tuple[list[Permission], int]:
         filtered = list(self._permissions.values())
         total = len(filtered)
         return filtered[pagination.offset : pagination.offset + pagination.limit], total
@@ -72,31 +69,28 @@ class InMemoryRbacRepository(IRbacRepository):
     async def get_role_by_uuid(self, uuid: str) -> Role | None:
         for r in self._roles.values():
             if r.uuid == uuid:
+                if r.id is None:
+                    continue
                 # Hydrate permissions
                 perm_ids = self._role_permissions.get(r.id, set())
                 r.permissions = [self._permissions[pid] for pid in perm_ids if pid in self._permissions]
                 return r
         return None
 
-    async def list_roles(
-        self,
-        pagination: PaginationParams = PaginationParams(),
-    ) -> tuple[list[Role], int]:
+    async def list_roles(self, pagination: PaginationParams = PaginationParams()) -> tuple[list[Role], int]:
         filtered = list(self._roles.values())
         total = len(filtered)
         return filtered[pagination.offset : pagination.offset + pagination.limit], total
 
     # Role <-> Permission
 
-    async def assign_permission_to_role(
-        self, role_id: int, permission_id: int, assigned_by: int | None = None
-    ) -> None:
+    async def assign_permission_to_role(self, role_id: int, permission_id: int, assigned_by: int | None = None) -> None:
         if role_id not in self._role_permissions:
             self._role_permissions[role_id] = set()
         self._role_permissions[role_id].add(permission_id)
         self._role_permission_meta[(role_id, permission_id)] = {
             "assigned_by": assigned_by,
-            "assigned_at": datetime.now(timezone.utc),
+            "assigned_at": datetime.now(UTC),
         }
 
     async def remove_permission_from_role(self, role_id: int, permission_id: int) -> None:
@@ -110,16 +104,11 @@ class InMemoryRbacRepository(IRbacRepository):
 
     # User <-> Role
 
-    async def assign_role_to_user(
-        self, user_id: int, role_id: int, assigned_by: int | None = None
-    ) -> None:
+    async def assign_role_to_user(self, user_id: int, role_id: int, assigned_by: int | None = None) -> None:
         if user_id not in self._user_roles:
             self._user_roles[user_id] = set()
         self._user_roles[user_id].add(role_id)
-        self._user_role_meta[(user_id, role_id)] = {
-            "assigned_by": assigned_by,
-            "assigned_at": datetime.now(timezone.utc),
-        }
+        self._user_role_meta[(user_id, role_id)] = {"assigned_by": assigned_by, "assigned_at": datetime.now(UTC)}
 
     async def remove_role_from_user(self, user_id: int, role_id: int) -> None:
         if user_id in self._user_roles:
@@ -131,7 +120,7 @@ class InMemoryRbacRepository(IRbacRepository):
         roles = []
         for rid in role_ids:
             role = self._roles.get(rid)
-            if role:
+            if role and role.id is not None:
                 perm_ids = self._role_permissions.get(role.id, set())
                 role.permissions = [self._permissions[pid] for pid in perm_ids if pid in self._permissions]
                 roles.append(role)
@@ -172,9 +161,7 @@ class InMemoryRbacRepository(IRbacRepository):
                 meta = self._user_role_meta.get((user_id, rid), {})
                 assignments.append(
                     UserRoleAssignment(
-                        role=role,
-                        assigned_by=meta.get("assigned_by"),
-                        assigned_at=meta.get("assigned_at"),
+                        role=role, assigned_by=meta.get("assigned_by"), assigned_at=meta.get("assigned_at")
                     )
                 )
         return assignments
@@ -188,9 +175,7 @@ class InMemoryRbacRepository(IRbacRepository):
                 meta = self._role_permission_meta.get((role_id, pid), {})
                 assignments.append(
                     RolePermissionAssignment(
-                        permission=perm,
-                        assigned_by=meta.get("assigned_by"),
-                        assigned_at=meta.get("assigned_at"),
+                        permission=perm, assigned_by=meta.get("assigned_by"), assigned_at=meta.get("assigned_at")
                     )
                 )
         return assignments

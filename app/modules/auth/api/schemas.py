@@ -1,4 +1,8 @@
+from datetime import datetime
+
 from pydantic import BaseModel, EmailStr, Field
+
+from app.modules.user.domain.entities import User
 
 
 class LoginRequest(BaseModel):
@@ -77,7 +81,7 @@ class UserProfileResponse(BaseModel):
     deleted_at: str | None = Field(default=None, description="Timestamp of soft deletion, if applicable.")
 
     @classmethod
-    def from_entity(cls, user) -> UserProfileResponse:
+    def from_entity(cls, user: User) -> UserProfileResponse:
         """Build a response schema from a ``User`` domain entity.
 
         Args:
@@ -101,13 +105,11 @@ class UserProfileResponse(BaseModel):
         )
 
 
-def _format_dt(dt) -> str | None:
+def _format_dt(dt: datetime | None) -> str | None:
     """Format a datetime to ISO string, or return None."""
     if dt is None:
         return None
-    if hasattr(dt, "isoformat"):
-        return dt.isoformat()
-    return str(dt)
+    return dt.isoformat()
 
 
 class ActivateAccountRequest(BaseModel):

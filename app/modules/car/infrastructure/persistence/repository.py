@@ -12,6 +12,9 @@ class SQLAlchemyCarRepository(ICarRepository):
     def __init__(self, session: AsyncSession):
         self.session = session
 
+    async def commit(self) -> None:
+        await self.session.commit()
+
     async def get_by_id(self, car_id: int) -> Car | None:
         orm_car = await self.session.get(CarModel, car_id)
         return map_to_domain(orm_car) if orm_car else None
@@ -30,9 +33,7 @@ class SQLAlchemyCarRepository(ICarRepository):
         return map_to_domain(orm_car)
 
     async def list_by_owner(
-        self,
-        owner_id: int,
-        pagination: PaginationParams = PaginationParams(),
+        self, owner_id: int, pagination: PaginationParams = PaginationParams()
     ) -> tuple[list[Car], int]:
         base = select(CarModel).where(CarModel.owner_id == owner_id)
 
@@ -46,10 +47,7 @@ class SQLAlchemyCarRepository(ICarRepository):
 
         return [map_to_domain(c) for c in orm_cars], total
 
-    async def list_all(
-        self,
-        pagination: PaginationParams = PaginationParams(),
-    ) -> tuple[list[Car], int]:
+    async def list_all(self, pagination: PaginationParams = PaginationParams()) -> tuple[list[Car], int]:
         base = select(CarModel)
 
         count_stmt = select(func.count()).select_from(base.subquery())

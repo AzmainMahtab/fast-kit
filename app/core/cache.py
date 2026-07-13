@@ -1,6 +1,6 @@
 import json
 from abc import ABC, abstractmethod
-from typing import Any
+from typing import Any, cast
 
 from redis.asyncio import Redis
 
@@ -97,10 +97,10 @@ class RedisCache(ICacheService):
 
     async def exists(self, key: str) -> bool:
         result = await self._client.exists(key)
-        return result > 0
+        return cast(bool, result > 0)
 
     async def incr(self, key: str) -> int:
-        return await self._client.incr(key)
+        return cast(int, await self._client.incr(key))
 
     async def set_ttl(self, key: str, value: Any, ttl: int) -> None:
         await self.set(key, value, ttl)

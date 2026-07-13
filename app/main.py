@@ -6,9 +6,7 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.core.cache import NullCache, RedisCache, create_redis_client
-from app.core.database import AsyncSessionLocal
 from app.core.event_bus import InMemoryEventBus
-from app.core.seed import seed_superuser
 from app.core.exception_handlers import (
     app_exception_handler,
     auth_exception_handler,
@@ -20,6 +18,7 @@ from app.core.exception_handlers import (
 from app.core.exceptions import AppException
 from app.core.health import check_database, check_redis
 from app.core.response import SuccessEnvelope
+from app.core.seed import seed_superuser
 from app.core.settings import settings
 from app.modules.auth.api.router import router as auth_router
 from app.modules.auth.domain.events import UserLoggedInEvent
@@ -40,7 +39,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None]:
     app.state.event_bus = InMemoryEventBus()
     try:
         redis = await create_redis_client()
-        await redis.ping()
+        await redis.ping()  # type: ignore[misc]
         app.state.cache_service = RedisCache(redis)
     except Exception:
         app.state.cache_service = NullCache()
@@ -66,12 +65,12 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None]:
 
 app = FastAPI(title=settings.PROJECT_NAME, lifespan=lifespan)
 
-app.add_exception_handler(AuthenticationError, auth_exception_handler)
-app.add_exception_handler(AppException, app_exception_handler)
-app.add_exception_handler(HTTPException, http_exception_handler)
-app.add_exception_handler(RequestValidationError, validation_exception_handler)
+app.add_exception_handler(AuthenticationError, auth_exception_handler)  # type: ignore[arg-type]
+app.add_exception_handler(AppException, app_exception_handler)  # type: ignore[arg-type]
+app.add_exception_handler(HTTPException, http_exception_handler)  # type: ignore[arg-type]
+app.add_exception_handler(RequestValidationError, validation_exception_handler)  # type: ignore[arg-type]
 app.add_exception_handler(Exception, unhandled_exception_handler)
-app.add_exception_handler(RbacError, rbac_exception_handler)
+app.add_exception_handler(RbacError, rbac_exception_handler)  # type: ignore[arg-type]
 
 app.add_middleware(
     CORSMiddleware,
@@ -82,8 +81,10 @@ app.add_middleware(
 )
 
 
-@app.get("/health", response_model=SuccessEnvelope[dict], response_model_exclude_none=True, summary="Health check")
-async def health():
+@app.get(
+    "/health", response_model=SuccessEnvelope[dict[str, str]], response_model_exclude_none=True, summary="Health check"
+)
+async def health() -> SuccessEnvelope[dict[str, str]]:
     db_ok = await check_database()
     redis_ok = await check_redis()
     return SuccessEnvelope(

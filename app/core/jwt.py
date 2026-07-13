@@ -1,4 +1,5 @@
 from datetime import UTC, datetime, timedelta
+from typing import Any
 from uuid import uuid4
 
 import jwt
@@ -68,7 +69,7 @@ class JWTService:
         }
         return jwt.encode(payload, self._secret_key, algorithm=self._algorithm)
 
-    def decode(self, token: str) -> dict:
+    def decode(self, token: str) -> dict[str, Any]:
         """Decode and verify a JWT token.
 
         Args:

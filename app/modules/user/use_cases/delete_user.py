@@ -21,6 +21,7 @@ class DeleteUserUseCase:
         deleted_at = datetime.now(UTC)
         user.soft_delete(deleted_at)
         updated_user = await self.user_repo.update(user)
+        await self.user_repo.commit()
         await self._event_bus.publish(
             UserUpdatedEvent(user_uuid=str(updated_user.uuid), email=updated_user.email.value)
         )

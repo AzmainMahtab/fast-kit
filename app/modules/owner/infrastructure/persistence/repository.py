@@ -12,6 +12,9 @@ class SQLAlchemyOwnerRepository(IOwnerRepository):
     def __init__(self, session: AsyncSession):
         self.session = session
 
+    async def commit(self) -> None:
+        await self.session.commit()
+
     async def get_by_id(self, owner_id: int) -> Owner | None:
         orm_owner = await self.session.get(OwnerModel, owner_id)
         return map_to_domain(orm_owner) if orm_owner else None
@@ -35,10 +38,7 @@ class SQLAlchemyOwnerRepository(IOwnerRepository):
         await self.session.refresh(orm_owner)
         return map_to_domain(orm_owner)
 
-    async def list_all(
-        self,
-        pagination: PaginationParams = PaginationParams(),
-    ) -> tuple[list[Owner], int]:
+    async def list_all(self, pagination: PaginationParams = PaginationParams()) -> tuple[list[Owner], int]:
         base = select(OwnerModel)
 
         count_stmt = select(func.count()).select_from(base.subquery())

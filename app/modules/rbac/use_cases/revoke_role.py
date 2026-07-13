@@ -11,7 +11,7 @@ class RevokeRoleUseCase:
 
     async def execute(self, command: RevokeRoleCommand) -> None:
         role = await self.rbac_repo.get_role_by_uuid(command.role_uuid)
-        if not role:
+        if not role or role.id is None:
             raise RoleNotFoundError(f"Role with uuid {command.role_uuid} not found.")
 
         has_role = await self.rbac_repo.user_has_role(command.user_id, role.name)
@@ -19,6 +19,7 @@ class RevokeRoleUseCase:
             raise RoleNotAssignedError(f"User does not have role '{role.name}'.")
 
         await self.rbac_repo.remove_role_from_user(command.user_id, role.id)
+        await self.rbac_repo.commit()
 
         if self.cache:
             await self.cache.delete(f"user_permissions:{command.user_id}")

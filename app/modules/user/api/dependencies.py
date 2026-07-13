@@ -1,3 +1,5 @@
+from typing import cast
+
 from fastapi import Depends, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -19,7 +21,7 @@ async def get_user_repo(db: AsyncSession = Depends(get_db)) -> IUserRepository:
 
 
 def get_event_bus(request: Request) -> IEventBus:
-    return request.app.state.event_bus
+    return cast(IEventBus, request.app.state.event_bus)
 
 
 async def get_register_use_case(

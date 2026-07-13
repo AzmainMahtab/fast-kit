@@ -37,12 +37,13 @@ test = [
 pythonpath = ["."]
 asyncio_mode = "auto"
 testpaths = [
-    "app/modules/user/tests",
     "app/core/tests",
+    "app/modules/auth/tests",
+    "app/modules/car/tests",
     "app/modules/otp/tests",
     "app/modules/owner/tests",
-    "app/modules/car/tests",
     "app/modules/rbac/tests",
+    "app/modules/user/tests",
 ]
 
 [tool.pyright]

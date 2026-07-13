@@ -13,6 +13,10 @@ class InMemoryUserRepository(IUserRepository):
         self._users: dict[int, User] = {}
         self._next_id = 1
 
+    async def commit(self) -> None:
+        """No-op for the in-memory test double."""
+        return
+
     def _find_by(self, predicate) -> User | None:
         for user in self._users.values():
             if predicate(user):
@@ -49,7 +53,7 @@ class InMemoryUserRepository(IUserRepository):
 
     async def delete(self, uuid: str) -> None:
         user = self._find_by(lambda u: u.uuid == uuid)
-        if user:
+        if user and user.id is not None:
             self._users.pop(user.id, None)
 
     async def list_all(

@@ -15,9 +15,7 @@ from app.modules.car.use_cases.list_cars import ListCarsUseCase
 
 router = APIRouter(prefix="/cars", tags=["cars"], route_class=CleanRoute)
 
-DOMAIN_TO_APP = {
-    CarNotFoundError: ("CAR_NOT_FOUND", 404),
-}
+DOMAIN_TO_APP = {CarNotFoundError: ("CAR_NOT_FOUND", 404)}
 
 
 def _map_error(exc: Exception) -> AppException:
@@ -36,7 +34,9 @@ def _map_error(exc: Exception) -> AppException:
     summary="Create a new car",
     dependencies=[Depends(require_permission("car:create"))],
 )
-async def create_car(request: CreateCarRequest, use_case: CreateCarUseCase = Depends(get_create_car_use_case)):
+async def create_car(
+    request: CreateCarRequest, use_case: CreateCarUseCase = Depends(get_create_car_use_case)
+) -> SuccessEnvelope[CarResponse]:
     command = CreateCarCommand(
         owner_id=request.owner_id,
         make=request.make,
@@ -59,7 +59,9 @@ async def create_car(request: CreateCarRequest, use_case: CreateCarUseCase = Dep
     summary="Get car by UUID",
     dependencies=[Depends(require_permission("car:read"))],
 )
-async def get_by_uuid(uuid: str, use_case: GetCarUseCase = Depends(get_get_car_use_case)):
+async def get_by_uuid(
+    uuid: str, use_case: GetCarUseCase = Depends(get_get_car_use_case)
+) -> SuccessEnvelope[CarResponse]:
     query = GetCarByUuidQuery(uuid=uuid)
     try:
         car = await use_case.by_uuid(query)
@@ -83,7 +85,7 @@ async def list_by_owner(
         default=DEFAULT_PAGE_SIZE, ge=1, le=MAX_PAGE_SIZE, description="Maximum number of records to return."
     ),
     use_case: ListCarsUseCase = Depends(get_list_cars_use_case),
-):
+) -> SuccessEnvelope[CarListResponse]:
     query = ListCarsByOwnerQuery(owner_id=owner_id, pagination=PaginationParams(offset=offset, limit=limit))
     result = await use_case.by_owner(query)
 
@@ -111,7 +113,7 @@ async def list_cars(
         default=DEFAULT_PAGE_SIZE, ge=1, le=MAX_PAGE_SIZE, description="Maximum number of records to return."
     ),
     use_case: ListCarsUseCase = Depends(get_list_cars_use_case),
-):
+) -> SuccessEnvelope[CarListResponse]:
     query = ListCarsQuery(pagination=PaginationParams(offset=offset, limit=limit))
     result = await use_case.all_cars(query)
 

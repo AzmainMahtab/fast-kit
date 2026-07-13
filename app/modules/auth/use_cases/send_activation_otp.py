@@ -18,11 +18,7 @@ logger = logging.getLogger(__name__)
 
 class SendActivationOtpUseCase:
     def __init__(
-        self,
-        user_repo: IUserRepository,
-        otp_repo: IOtpRepository,
-        cache: ICacheService,
-        event_bus: IEventBus,
+        self, user_repo: IUserRepository, otp_repo: IOtpRepository, cache: ICacheService, event_bus: IEventBus
     ):
         self._user_repo = user_repo
         self._otp_repo = otp_repo
@@ -42,11 +38,7 @@ class SendActivationOtpUseCase:
 
         expiry_minutes = OTP_EXPIRY_SECONDS[OtpType.EMAIL_VERIFY] // 60
         try:
-            await send_otp_email(
-                to_email=user.email.value,
-                code=result.code,
-                expiry_minutes=expiry_minutes,
-            )
+            await send_otp_email(to_email=user.email.value, code=result.code, expiry_minutes=expiry_minutes)
         except Exception:
             logger.exception("Failed to send activation OTP email to %s", user.email.value)
 

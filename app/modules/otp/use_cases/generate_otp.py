@@ -43,20 +43,16 @@ class GenerateOtpUseCase:
         expires_at = datetime.now(UTC) + timedelta(seconds=ttl)
 
         otp = OneTimePassword(
-            user_uuid=command.user_uuid,
-            otp_type=command.otp_type,
-            code_hash=code_hash,
-            expires_at=expires_at,
+            user_uuid=command.user_uuid, otp_type=command.otp_type, code_hash=code_hash, expires_at=expires_at
         )
 
         otp = await self._otp_repo.create(otp)
+        await self._otp_repo.commit()
         if otp.uuid is None:
             raise RuntimeError("Repository must assign a UUID on create.")
 
         await self._cache.set(
-            f"{OTP_CACHE_PREFIX}{command.user_uuid}:{command.otp_type.value}",
-            {"code": code, "uuid": otp.uuid},
-            ttl,
+            f"{OTP_CACHE_PREFIX}{command.user_uuid}:{command.otp_type.value}", {"code": code, "uuid": otp.uuid}, ttl
         )
 
         await self._event_bus.publish(

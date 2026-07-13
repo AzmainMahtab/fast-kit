@@ -15,6 +15,9 @@ class SQLAlchemyOtpRepository(IOtpRepository):
     def __init__(self, session: AsyncSession):
         self.session = session
 
+    async def commit(self) -> None:
+        await self.session.commit()
+
     async def create(self, otp: OneTimePassword) -> OneTimePassword:
         orm_model = map_to_persistence(otp)
         self.session.add(orm_model)
@@ -51,10 +54,7 @@ class SQLAlchemyOtpRepository(IOtpRepository):
         user_uuid_obj = uuid.UUID(user_uuid)
         stmt = (
             select(OtpModel)
-            .where(
-                OtpModel.user_uuid == user_uuid_obj,
-                OtpModel.otp_type == otp_type.value,
-            )
+            .where(OtpModel.user_uuid == user_uuid_obj, OtpModel.otp_type == otp_type.value)
             .order_by(OtpModel.created_at.desc())
             .limit(1)
         )

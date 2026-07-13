@@ -16,4 +16,5 @@ class CreateRoleUseCase:
 
         role = Role(name=command.name, description=command.description)
         saved = await self.rbac_repo.create_role(role)
+        await self.rbac_repo.commit()
         return RoleActionResult(role=saved)
