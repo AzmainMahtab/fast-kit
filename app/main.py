@@ -8,7 +8,8 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.core.cache import NullCache, RedisCache, create_redis_client
 from app.core.database import AsyncSessionLocal
-from app.core.event_bus import InMemoryEventBus
+from app.core.event_bus import IEventBus, InMemoryEventBus
+from app.core.nats_bus import NatsEventBus, create_event_bus
 from app.core.exception_handlers import (
     app_exception_handler,
     auth_exception_handler,
@@ -44,7 +45,7 @@ logger = logging.getLogger(__name__)
 
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncGenerator[None]:
-    app.state.event_bus = InMemoryEventBus()
+    app.state.event_bus = await create_event_bus()
 
     # Redis is required for security-critical features (token blacklists,
     # rate limiting, OTP state). In production we fail closed: if Redis is
@@ -81,6 +82,8 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None]:
     await seed_superuser()
 
     yield
+    if isinstance(app.state.event_bus, NatsEventBus):
+        await app.state.event_bus.close()
     app.state.event_bus = None
     if isinstance(app.state.cache_service, RedisCache):
         await app.state.cache_service._client.close()

@@ -23,3 +23,10 @@ class JobStatusChanged:
     new_status: str
     user_id: int | None
     reason: str
+
+
+@dataclass(frozen=True)
+class JobStatusCheckScheduled:
+    """Fired periodically by the scheduler to trigger job status checks."""
+
+    checked_at: str

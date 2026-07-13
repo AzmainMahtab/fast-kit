@@ -30,9 +30,28 @@ services:
     networks:
       - backend-network
 
+  nats:
+    image: nats:2.11-alpine
+    container_name: nats
+    restart: unless-stopped
+    ports:
+      - "4222:4222" # Client port
+      - "8222:8222" # HTTP monitoring
+    command:
+      - "--jetstream"
+      - "--store_dir"
+      - "/data/jetstream"
+      - "--http_port"
+      - "8222"
+    volumes:
+      - nats_data:/data/jetstream
+    networks:
+      - backend-network
+
 volumes:
   postgres_data:
   redis_data:
+  nats_data:
 
 networks:
   backend-network:

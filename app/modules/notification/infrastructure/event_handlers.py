@@ -9,6 +9,7 @@ from app.modules.notification.infrastructure.persistence.repository import (
     SQLAlchemyNotificationRepository,
 )
 from app.modules.notification.use_cases.record_notification import RecordNotificationUseCase
+from app.modules.ordering.domain.events import JobStatusChanged, JobStatusCheckScheduled
 
 T = TypeVar("T")
 GetRepository = Callable[[], Awaitable[INotificationRepository]]
@@ -40,16 +41,36 @@ def create_job_status_changed_handler(
     return handler
 
 
+def create_job_status_check_scheduled_handler(
+    get_repository: GetRepository,
+) -> Callable[..., Coroutine]:
+    """Factory for the scheduled job-status-check handler."""
+
+    async def handler(event) -> None:
+        repo = await get_repository()
+        use_case = RecordNotificationUseCase(repo)
+        await use_case.execute(
+            event_type="ordering.job_status_check_scheduled",
+            aggregate_type="system",
+            aggregate_id=0,
+            message=f"Scheduled job status check at {event.checked_at}",
+        )
+
+    return handler
+
+
 def subscribe_notification_handlers(
     event_bus: IEventBus,
     get_repository: GetRepository,
 ) -> None:
     """Subscribe notification handlers to domain events at startup."""
-    from app.modules.ordering.domain.events import JobStatusChanged
-
     event_bus.subscribe(
         JobStatusChanged,
         create_job_status_changed_handler(get_repository),
+    )
+    event_bus.subscribe(
+        JobStatusCheckScheduled,
+        create_job_status_check_scheduled_handler(get_repository),
     )
 
 

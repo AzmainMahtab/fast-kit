@@ -44,6 +44,14 @@ class Settings(BaseSettings):
     # REDIS
     REDIS_URL: str = "redis://redis:6379/0"
 
+    # NATS
+    NATS_ENABLED: bool = False
+    NATS_URL: str = "nats://nats:4222"
+    NATS_EVENTS_STREAM: str = "EVENTS"
+    NATS_EVENTS_SUBJECT_PREFIX: str = "events"
+    NATS_DLQ_STREAM: str = "EVENTS_DLQ"
+    NATS_CONSUMER_MAX_DELIVER: int = 3
+
     # SECURITY
     JWT_SECRET_KEY: str = ""
     ALGORITHM: str = "HS256"
