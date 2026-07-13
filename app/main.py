@@ -7,6 +7,7 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.core.cache import NullCache, RedisCache, create_redis_client
+from app.core.database import AsyncSessionLocal
 from app.core.event_bus import InMemoryEventBus
 from app.core.exception_handlers import (
     app_exception_handler,
@@ -25,6 +26,12 @@ from app.modules.auth.api.router import router as auth_router
 from app.modules.auth.domain.exception import AuthenticationError
 from app.modules.auth.infrastructure.event_handlers import create_invalidate_user_caches_handler
 from app.modules.car.api.router import router as car_router
+from app.modules.notification.api.router import router as notification_router
+from app.modules.notification.infrastructure.event_handlers import (
+    create_session_repository_factory,
+    subscribe_notification_handlers,
+)
+from app.modules.ordering.api.router import router as ordering_router
 from app.modules.otp.api.router import router as otp_router
 from app.modules.owner.api.router import router as owner_router
 from app.modules.rbac.api.router import router as rbac_router
@@ -64,6 +71,12 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None]:
     # instead of having the user module delete auth cache keys directly.
     invalidate_handler = create_invalidate_user_caches_handler(app.state.cache_service)
     app.state.event_bus.subscribe(UserUpdatedEvent, invalidate_handler)
+
+    # Wire notification module to ordering events.
+    subscribe_notification_handlers(
+        app.state.event_bus,
+        create_session_repository_factory(AsyncSessionLocal),
+    )
 
     await seed_superuser()
 
@@ -109,3 +122,5 @@ app.include_router(otp_router, prefix=settings.API_V1_PREFIX)
 app.include_router(owner_router, prefix=settings.API_V1_PREFIX)
 app.include_router(car_router, prefix=settings.API_V1_PREFIX)
 app.include_router(rbac_router, prefix=settings.API_V1_PREFIX)
+app.include_router(ordering_router, prefix=settings.API_V1_PREFIX)
+app.include_router(notification_router, prefix=settings.API_V1_PREFIX)
