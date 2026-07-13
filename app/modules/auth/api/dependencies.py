@@ -6,7 +6,7 @@ from fastapi import Depends, Request
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.cache import ICacheService, NullCache
+from app.core.cache import ICacheService, get_cache_service, get_security_cache_service
 from app.core.database import get_db
 from app.core.event_bus import IEventBus
 from app.core.jwt import JWTService
@@ -38,21 +38,6 @@ def get_jwt_service() -> JWTService:
         A ``JWTService`` instance configured via settings defaults.
     """
     return JWTService()
-
-
-def get_cache_service(request: Request) -> ICacheService:
-    """Dependency provider for the application's cache service.
-
-    Retrieves the ``ICacheService`` instance stored on ``app.state``
-    during application startup. Falls back to ``NullCache`` if not set.
-
-    Args:
-        request: The incoming HTTP request.
-
-    Returns:
-        Either a ``RedisCache`` or ``NullCache`` instance.
-    """
-    return getattr(request.app.state, "cache_service", NullCache())
 
 
 def get_event_bus(request: Request) -> IEventBus:
@@ -106,25 +91,25 @@ async def get_login_use_case(
 
 async def get_refresh_use_case(
     jwt: JWTService = Depends(get_jwt_service),
-    cache: ICacheService = Depends(get_cache_service),
+    cache: ICacheService = Depends(get_security_cache_service),
     event_bus: IEventBus = Depends(get_event_bus),
     repo: IUserRepository = Depends(get_user_repo),
 ) -> RefreshTokenUseCase:
     """Dependency provider for ``RefreshTokenUseCase``.
 
-    Wires together the JWT service, cache, event bus, and user repository.
+    Wires together the JWT service, security cache, event bus, and user repository.
     """
     return RefreshTokenUseCase(jwt=jwt, cache=cache, event_bus=event_bus, user_repo=repo)
 
 
 async def get_logout_use_case(
     jwt: JWTService = Depends(get_jwt_service),
-    cache: ICacheService = Depends(get_cache_service),
+    cache: ICacheService = Depends(get_security_cache_service),
     event_bus: IEventBus = Depends(get_event_bus),
 ) -> LogoutUseCase:
     """Dependency provider for ``LogoutUseCase``.
 
-    Wires together the JWT service, cache, and event bus.
+    Wires together the JWT service, security cache, and event bus.
     """
     return LogoutUseCase(jwt=jwt, cache=cache, event_bus=event_bus)
 
@@ -149,7 +134,7 @@ async def get_otp_repo(db: AsyncSession = Depends(get_db)) -> IOtpRepository:
 async def get_send_activation_otp_use_case(
     user_repo: IUserRepository = Depends(get_user_repo),
     otp_repo: IOtpRepository = Depends(get_otp_repo),
-    cache: ICacheService = Depends(get_cache_service),
+    cache: ICacheService = Depends(get_security_cache_service),
     event_bus: IEventBus = Depends(get_event_bus),
 ) -> SendActivationOtpUseCase:
     from app.modules.auth.use_cases.send_activation_otp import SendActivationOtpUseCase
@@ -160,7 +145,7 @@ async def get_send_activation_otp_use_case(
 async def get_activate_account_use_case(
     user_repo: IUserRepository = Depends(get_user_repo),
     otp_repo: IOtpRepository = Depends(get_otp_repo),
-    cache: ICacheService = Depends(get_cache_service),
+    cache: ICacheService = Depends(get_security_cache_service),
     event_bus: IEventBus = Depends(get_event_bus),
 ) -> ActivateAccountUseCase:
     from app.modules.auth.use_cases.activate_account import ActivateAccountUseCase
@@ -171,7 +156,7 @@ async def get_activate_account_use_case(
 async def require_authenticated(
     credentials: HTTPAuthorizationCredentials = Depends(security),
     jwt_service: JWTService = Depends(get_jwt_service),
-    cache: ICacheService = Depends(get_cache_service),
+    cache: ICacheService = Depends(get_security_cache_service),
 ) -> str:
     """Require a valid access token and return the authenticated user's UUID.
 
@@ -182,7 +167,7 @@ async def require_authenticated(
     Args:
         credentials: The parsed Bearer token from the ``Authorization`` header.
         jwt_service: JWT service for token verification.
-        cache: Cache service for blacklist lookup.
+        cache: Security cache for blacklist lookup.
 
     Returns:
         The authenticated user's UUID as a string.
@@ -214,7 +199,7 @@ async def require_authenticated_user(
     credentials: HTTPAuthorizationCredentials = Depends(security),
     jwt_service: JWTService = Depends(get_jwt_service),
     repo: IUserRepository = Depends(get_user_repo),
-    cache: ICacheService = Depends(get_cache_service),
+    cache: ICacheService = Depends(get_security_cache_service),
 ) -> User:
     """Require an active, authenticated user and return the ``User`` domain entity.
 
@@ -228,7 +213,7 @@ async def require_authenticated_user(
         credentials: The parsed Bearer token from the ``Authorization`` header.
         jwt_service: JWT service for token verification.
         repo: User repository for user lookup.
-        cache: Cache service for blacklist lookup.
+        cache: Security cache for blacklist lookup.
 
     Returns:
         The authenticated ``User`` domain entity.
@@ -284,7 +269,7 @@ def require_permission(permission: str) -> Callable[..., Any]:
     async def _dependency(
         user: User = Depends(require_authenticated_user),
         rbac_repo: IRbacRepository = Depends(get_rbac_repo),
-        cache: ICacheService = Depends(get_cache_service),
+        cache: ICacheService = Depends(get_security_cache_service),
     ) -> User:
         if user.is_superuser:
             return user

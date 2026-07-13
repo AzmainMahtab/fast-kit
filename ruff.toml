@@ -100,6 +100,9 @@ ignore = [
 "app/modules/otp/infrastructure/persistence/mapper.py" = [
     "UP037",  # SQLAlchemy forward references require quotes
 ]
+"app/core/rate_limit.py" = [
+    "B008",  # Depends() in dependency factory is required FastAPI pattern
+]
 [lint.pydocstyle]
 convention = "google"
 

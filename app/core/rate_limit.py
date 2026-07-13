@@ -1,9 +1,9 @@
 from collections.abc import Callable
 from typing import Any
 
-from fastapi import Request
+from fastapi import Depends, Request
 
-from app.core.cache import ICacheService, NullCache
+from app.core.cache import ICacheService, get_security_cache_service
 from app.core.exceptions import AppException
 
 
@@ -44,14 +44,13 @@ def rate_limit(max_requests: int, window_seconds: int) -> Callable[..., Any]:
             ...
     """
 
-    async def _dependency(request: Request) -> None:
+    async def _dependency(
+        request: Request,
+        cache: ICacheService = Depends(get_security_cache_service),
+    ) -> None:
         # In production behind a proxy, read X-Forwarded-For instead.
         client_ip = request.client.host if request.client else "unknown"
         key = f"rate_limit:{request.url.path}:{client_ip}"
-        # We cannot inject ICacheService cleanly here without Depends,
-        # so we pull it from app.state which is set in lifespan.
-        # Tests that skip lifespan get a no-op NullCache fallback.
-        cache: ICacheService = getattr(request.app.state, "cache_service", NullCache())
         limiter = RateLimiter(cache, max_requests, window_seconds)
         await limiter.check(key)
 

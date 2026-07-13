@@ -1,3 +1,4 @@
+import logging
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
 
@@ -21,39 +22,48 @@ from app.core.response import SuccessEnvelope
 from app.core.seed import seed_superuser
 from app.core.settings import settings
 from app.modules.auth.api.router import router as auth_router
-from app.modules.auth.domain.events import UserLoggedInEvent
 from app.modules.auth.domain.exception import AuthenticationError
 from app.modules.auth.infrastructure.event_handlers import create_invalidate_user_caches_handler
 from app.modules.car.api.router import router as car_router
 from app.modules.otp.api.router import router as otp_router
-from app.modules.otp.infrastructure.event_handlers import create_generate_login_otp_handler
 from app.modules.owner.api.router import router as owner_router
 from app.modules.rbac.api.router import router as rbac_router
 from app.modules.rbac.domain.exception import RbacError
 from app.modules.user.api.router import router as user_router
 from app.modules.user.domain.events import UserUpdatedEvent
 
+logger = logging.getLogger(__name__)
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncGenerator[None]:
     app.state.event_bus = InMemoryEventBus()
+
+    # Redis is required for security-critical features (token blacklists,
+    # rate limiting, OTP state). In production we fail closed: if Redis is
+    # unavailable the security cache is not initialized, so auth endpoints
+    # return 503 instead of silently accepting revoked tokens or disabling
+    # rate limits. In tests we allow a NullCache fallback.
     try:
         redis = await create_redis_client()
         await redis.ping()  # type: ignore[misc]
         app.state.cache_service = RedisCache(redis)
-    except Exception:
+        app.state.security_cache_service = app.state.cache_service
+    except Exception as exc:
+        logger.warning("Redis unavailable: %s", exc)
         app.state.cache_service = NullCache()
+        if settings.ENVIRONMENT == "test":
+            app.state.security_cache_service = NullCache()
+        else:
+            # Intentionally leave security_cache_service unset so that any
+            # auth/OTP/rate-limit path fails closed with 503.
+            app.state.security_cache_service = None
 
     # Wire cross-module cache invalidation via domain events.
     # Auth module subscribes to user updates so it can clear its own caches
     # instead of having the user module delete auth cache keys directly.
     invalidate_handler = create_invalidate_user_caches_handler(app.state.cache_service)
     app.state.event_bus.subscribe(UserUpdatedEvent, invalidate_handler)
-
-    # OTP module subscribes to auth login events to generate login OTPs
-    # automatically on every successful authentication.
-    login_otp_handler = create_generate_login_otp_handler(app.state.cache_service, app.state.event_bus)
-    app.state.event_bus.subscribe(UserLoggedInEvent, login_otp_handler)
 
     await seed_superuser()
 

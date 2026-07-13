@@ -1,10 +1,15 @@
 import json
+import logging
 from abc import ABC, abstractmethod
 from typing import Any, cast
 
+from fastapi import Request
 from redis.asyncio import Redis
 
+from app.core.exceptions import AppException
 from app.core.settings import settings
+
+logger = logging.getLogger(__name__)
 
 
 class ICacheService(ABC):
@@ -139,3 +144,34 @@ async def create_redis_client() -> Redis:
         A ``redis.asyncio.Redis`` instance connected to the configured URL.
     """
     return Redis.from_url(settings.REDIS_URL, decode_responses=False)
+
+
+def get_cache_service(request: Request) -> ICacheService:
+    """Return the general cache service, falling back to ``NullCache``.
+
+    Use this for performance-only caches (profile, credentials). If Redis is
+    unavailable the application can still serve requests, just slower.
+    """
+    return cast(ICacheService, getattr(request.app.state, "cache_service", NullCache()))
+
+
+def get_security_cache_service(request: Request) -> ICacheService:
+    """Return the security-critical cache service.
+
+    This cache backs token blacklists, rate limits, and OTP state. It must
+    never silently degrade to ``NullCache`` in production, because doing so
+    would allow revoked tokens to be accepted and disable rate limiting.
+
+    Raises:
+        AppException: 503 when the security cache has not been initialized,
+            which happens when Redis is unavailable at startup in non-test
+            environments.
+    """
+    cache: ICacheService | None = getattr(request.app.state, "security_cache_service", None)
+    if cache is None:
+        raise AppException(
+            code="SECURITY_CACHE_UNAVAILABLE",
+            status_code=503,
+            detail="Security cache is unavailable. Authentication services cannot be used.",
+        )
+    return cache
