@@ -4,6 +4,7 @@ from app.modules.auth.cqrs.command import LoginCommand
 from app.modules.auth.domain.events import UserLoggedInEvent
 from app.modules.auth.domain.exception import AccountSuspendedError, InvalidCredentialsError
 from app.modules.auth.use_cases.login import LoginUseCase
+from app.modules.otp.domain.events import OtpGeneratedEvent
 
 
 @pytest.mark.asyncio
@@ -90,3 +91,36 @@ async def test_login_no_event_on_failure(suspended_user, user_repo, cache, jwt_s
         await uc.execute(command)
 
     assert len(received_events) == 0
+
+
+@pytest.mark.asyncio
+async def test_login_does_not_generate_login_otp(
+    active_user, user_repo, cache, jwt_service, event_bus, monkeypatch
+) -> None:
+    """Login must not auto-generate a login OTP; that would be a fake 2FA step."""
+    import app.modules.auth.use_cases.login as login_module
+
+    original_verify = login_module.verify_password
+    login_module.verify_password = lambda pw, hp: True  # type: ignore[assignment]
+    login_module.need_to_rehash = lambda hp: False  # type: ignore[assignment]
+
+    login_events: list[UserLoggedInEvent] = []
+    otp_events: list[OtpGeneratedEvent] = []
+
+    async def capture_login(event: UserLoggedInEvent) -> None:
+        login_events.append(event)
+
+    async def capture_otp(event: OtpGeneratedEvent) -> None:
+        otp_events.append(event)
+
+    event_bus.subscribe(UserLoggedInEvent, capture_login)
+    event_bus.subscribe(OtpGeneratedEvent, capture_otp)
+
+    try:
+        uc = LoginUseCase(user_repo=user_repo, cache=cache, jwt=jwt_service, event_bus=event_bus)
+        await uc.execute(LoginCommand(email="active@example.com", password="any-password"))
+
+        assert len(login_events) == 1
+        assert len(otp_events) == 0
+    finally:
+        login_module.verify_password = original_verify
