@@ -24,6 +24,8 @@ services:
       - SMTP_PASSWORD=${SMTP_PASSWORD}
       - SMTP_FROM_EMAIL=${SMTP_FROM_EMAIL}
       - SMTP_FROM_NAME=${SMTP_FROM_NAME}
+      - NATS_ENABLED=${NATS_ENABLED}
+      - NATS_URL=${NATS_URL}
     volumes:
       # Hot-reload mapping: Maps local app/ folder into the container
       - ./app:/app/app
@@ -34,6 +36,56 @@ services:
       - "8000:8000"
     networks:
       - backend-network
+
+  worker:
+    user: "${UID}:${GID}"
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: production
+    container_name: worker-local
+    command: ["python", "-m", "app.worker"]
+    environment:
+      - ENVIRONMENT=${ENVIRONMENT}
+      - DATABASE_URL=${DATABASE_URL}
+      - NATS_ENABLED=${NATS_ENABLED}
+      - NATS_URL=${NATS_URL}
+      - JWT_SECRET_KEY=${JWT_SECRET_KEY}
+    volumes:
+      - ./app:/app/app
+      - ./alembic:/app/alembic
+      - ./alembic.ini:/app/alembic.ini
+    depends_on:
+      - nats
+    networks:
+      - backend-network
+    profiles:
+      - nats
+
+  scheduler:
+    user: "${UID}:${GID}"
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: production
+    container_name: scheduler-local
+    command: ["python", "-m", "app.scheduler"]
+    environment:
+      - ENVIRONMENT=${ENVIRONMENT}
+      - DATABASE_URL=${DATABASE_URL}
+      - NATS_ENABLED=${NATS_ENABLED}
+      - NATS_URL=${NATS_URL}
+      - JWT_SECRET_KEY=${JWT_SECRET_KEY}
+    volumes:
+      - ./app:/app/app
+      - ./alembic:/app/alembic
+      - ./alembic.ini:/app/alembic.ini
+    depends_on:
+      - nats
+    networks:
+      - backend-network
+    profiles:
+      - nats
 
 networks:
   backend-network:

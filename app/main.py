@@ -7,7 +7,9 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.core.cache import NullCache, RedisCache, create_redis_client
-from app.core.event_bus import InMemoryEventBus
+from app.core.database import AsyncSessionLocal
+from app.core.event_bus import IEventBus, InMemoryEventBus
+from app.core.nats_bus import NatsEventBus, create_event_bus
 from app.core.exception_handlers import (
     app_exception_handler,
     auth_exception_handler,
@@ -25,6 +27,12 @@ from app.modules.auth.api.router import router as auth_router
 from app.modules.auth.domain.exception import AuthenticationError
 from app.modules.auth.infrastructure.event_handlers import create_invalidate_user_caches_handler
 from app.modules.car.api.router import router as car_router
+from app.modules.notification.api.router import router as notification_router
+from app.modules.notification.infrastructure.event_handlers import (
+    create_session_repository_factory,
+    subscribe_notification_handlers,
+)
+from app.modules.ordering.api.router import router as ordering_router
 from app.modules.otp.api.router import router as otp_router
 from app.modules.owner.api.router import router as owner_router
 from app.modules.rbac.api.router import router as rbac_router
@@ -37,7 +45,7 @@ logger = logging.getLogger(__name__)
 
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncGenerator[None]:
-    app.state.event_bus = InMemoryEventBus()
+    app.state.event_bus = await create_event_bus()
 
     # Redis is required for security-critical features (token blacklists,
     # rate limiting, OTP state). In production we fail closed: if Redis is
@@ -65,9 +73,17 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None]:
     invalidate_handler = create_invalidate_user_caches_handler(app.state.cache_service)
     app.state.event_bus.subscribe(UserUpdatedEvent, invalidate_handler)
 
+    # Wire notification module to ordering events.
+    subscribe_notification_handlers(
+        app.state.event_bus,
+        create_session_repository_factory(AsyncSessionLocal),
+    )
+
     await seed_superuser()
 
     yield
+    if isinstance(app.state.event_bus, NatsEventBus):
+        await app.state.event_bus.close()
     app.state.event_bus = None
     if isinstance(app.state.cache_service, RedisCache):
         await app.state.cache_service._client.close()
@@ -109,3 +125,5 @@ app.include_router(otp_router, prefix=settings.API_V1_PREFIX)
 app.include_router(owner_router, prefix=settings.API_V1_PREFIX)
 app.include_router(car_router, prefix=settings.API_V1_PREFIX)
 app.include_router(rbac_router, prefix=settings.API_V1_PREFIX)
+app.include_router(ordering_router, prefix=settings.API_V1_PREFIX)
+app.include_router(notification_router, prefix=settings.API_V1_PREFIX)
