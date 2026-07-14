@@ -36,23 +36,25 @@ Make fast-kit's event bus, workers, and scheduler production-ready by adding:
 
 ## 3. Decisions Still Needed
 
-| # | Decision | Options | Default recommendation |
+| # | Decision | Options | Chosen |
 |---|---|---|---|
-| 1 | Outbox cleanup window | Hours / days | 7 days retained, then archived. |
-| 2 | DLQ retention | Days / forever | 30 days, then archived to cold storage. |
-| 3 | Idempotency backend | Redis / PostgreSQL | PostgreSQL (simpler ops). |
-| 4 | Metrics backend | Prometheus / Datadog / CloudWatch | Prometheus + Grafana. |
-| 5 | Tracing | OpenTelemetry / Jaeger / none | OpenTelemetry with optional Jaeger. |
-| 6 | Admin UI framework | React-Admin / Refine / custom | React-Admin. |
-| 7 | Schema registry | Pydantic models only / Avro / JSON Schema | Pydantic models + registry. |
+| 1 | Outbox cleanup window | Hours / days | 7 days retained, then archived (not yet implemented). |
+| 2 | DLQ retention | Days / forever | 30 days, then archived to cold storage (not yet implemented). |
+| 3 | Idempotency backend | Redis / PostgreSQL | PostgreSQL (`processed_events` table created, guard not yet implemented). |
+| 4 | Metrics backend | Prometheus / Datadog / CloudWatch | Prometheus + Grafana (not yet implemented). |
+| 5 | Tracing | OpenTelemetry / Jaeger / none | OpenTelemetry with optional Jaeger (not yet implemented). |
+| 6 | Admin UI framework | React-Admin / Refine / custom | React-Admin (not yet implemented). |
+| 7 | Schema registry | Pydantic models only / Avro / JSON Schema | Pydantic models + registry (not yet implemented). |
 
 ---
 
 ## 4. Phase Plan
 
-### Phase 1: Outbox Pattern (Highest Priority)
+### Phase 1: Outbox Pattern (Highest Priority) ✅ Implemented
 
 **Goal:** Guarantee that business writes and event publication are atomic.
+
+**Implemented:**
 
 #### 1.1 Add `event_outbox` SQLAlchemy models
 
@@ -93,7 +95,7 @@ class DeadLetterEventModel(BaseModelMixin, Base):
     created_at, resolved_at
 
 class ProcessedEventModel(Base):
-    idempotency_key: Mapped[str] (unique)
+    idempotency_key: Mapped[str] (primary key)
     processed_at
 ```
 
@@ -101,15 +103,15 @@ class ProcessedEventModel(Base):
 
 **File:** `app/core/nats_bus.py`
 
-- Add `publish_durable(event, session: AsyncSession)`.
+- Added `publish_durable(event, session: AsyncSession)`.
 - `publish_durable` writes to `EventOutboxModel` using the provided session.
-- After `session.commit()`, the caller (use case or a unit-of-work helper) calls `relay_pending_outbox(session)`.
-- Provide a context manager / UoW helper:
+- Added `relay_pending_outbox(session)` which publishes pending rows to NATS and records them in `EventStoreModel`.
+- Added `durable_unit_of_work(event_bus)` context manager in `app/core/database.py`:
 
 ```python
-async with durable_unit_of_work() as session:
+async with durable_unit_of_work(event_bus) as session:
     # business writes + publish_durable
-    # commit happens here, then outbox relay
+    # commit happens here, then outbox relay via a separate session
 ```
 
 #### 1.3 Update use cases
@@ -117,30 +119,38 @@ async with durable_unit_of_work() as session:
 **Files:**
 - `app/modules/ordering/use_cases/create_order.py`
 - `app/modules/ordering/use_cases/transition_job_status.py`
-- All future command use cases
 
-- Replace `await self.event_bus.publish(event)` with `await self.event_bus.publish_durable(event, session)`.
-- Wrap writes in `durable_unit_of_work()`.
+- Use cases accept an optional `session: AsyncSession | None`.
+- When `session` is provided, they call `event_bus.publish_durable(event, session)`.
+- When `session` is `None` (unit tests / legacy), they fall back to `event_bus.publish(event)`.
+
+**API dependencies:**
+- `app/modules/ordering/api/dependencies.py` now provides a durable session via `get_durable_session`, a FastAPI dependency context manager.
+- Write endpoints (`create_order`, `transition_job_status`) use the durable session.
+- Read endpoints keep using `get_db`.
 
 #### 1.4 Relay mechanism
 
-**Options:**
+**Chosen:** Option A (inline after commit) via `durable_unit_of_work`.
 
-A. **Inline after commit** (simpler): After `session.commit()`, iterate pending outbox rows and publish to NATS.
-B. **Separate worker polling** (more robust): A Celery/NATS worker polls `event_outbox` every few seconds.
-
-**Recommendation:** Start with Option A for API path, add Option B as fallback for high-throughput scenarios.
+- The relay runs in a separate session after the business transaction commits.
+- If NATS is unreachable, the row stays pending and its `attempts` counter is incremented; the HTTP request still succeeds.
+- A future background poller (Option B) can be added for high-throughput scenarios without changing the outbox schema.
 
 #### 1.5 Migration
 
 **File:** `alembic/versions/0008_add_event_outbox.py`
 
-Create tables: `event_outbox`, `event_store`, `dead_letter_events`, `processed_events`.
+Created tables: `event_outbox`, `event_store`, `dead_letter_events`, `processed_events`.
 
 #### 1.6 Tests
 
-- Unit: mock repository tests for outbox relay.
-- Integration: DB rollback does not publish event; DB commit publishes event.
+- `app/modules/event_outbox/tests/test_outbox_repository.py`
+- `app/modules/event_outbox/tests/test_nats_outbox.py`
+- `app/core/tests/test_durable_unit_of_work.py`
+- `app/modules/ordering/tests/test_create_order_durable.py`
+- `app/modules/ordering/tests/test_transition_job_status_durable.py`
+- `app/core/tests/test_event_bus.py` extended for `InMemoryEventBus.publish_durable`.
 
 **Estimated effort:** 2–3 days.
 
@@ -431,8 +441,9 @@ Recommended sequence:
 
 ## 8. Success Criteria
 
-- [ ] `publish_durable()` is atomic with business DB writes.
-- [ ] Every event is queryable in `EventStore`.
+- [x] `publish_durable()` is atomic with business DB writes.
+- [x] Events published durably are recorded in `EventStore` after relay.
+- [ ] Every event is queryable in `EventStore` (admin API/UI pending).
 - [ ] Failed events are visible in `DeadLetterEvent` and replayable.
 - [ ] Correlation IDs trace a request from API -> NATS -> handler.
 - [ ] Re-publishing/replaying the same event does not duplicate side effects.
@@ -440,4 +451,4 @@ Recommended sequence:
 - [ ] Worker and scheduler handle SIGTERM gracefully.
 - [ ] NATS reconnects automatically after outage.
 - [ ] Unknown event schemas are rejected to DLQ.
-- [ ] All new code has tests; `uv run pytest -q` passes.
+- [x] All new code has tests; `uv run pytest -q` passes.

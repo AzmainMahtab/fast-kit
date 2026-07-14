@@ -100,6 +100,12 @@ ignore = [
 "app/modules/otp/infrastructure/persistence/mapper.py" = [
     "UP037",  # SQLAlchemy forward references require quotes
 ]
+"app/modules/ordering/api/dependencies.py" = [
+    "B008",  # Depends() in defaults is required FastAPI pattern
+]
+"app/modules/ordering/api/router.py" = [
+    "B008",  # Depends()/Query() in defaults is required FastAPI pattern
+]
 "app/core/rate_limit.py" = [
     "B008",  # Depends() in dependency factory is required FastAPI pattern
 ]

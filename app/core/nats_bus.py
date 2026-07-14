@@ -8,10 +8,13 @@ from typing import Any
 
 import nats
 from nats.js.api import ConsumerConfig, RetentionPolicy, StorageType, StreamConfig
+from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.event_bus import IEventBus
+from app.core.event_bus import IEventBus, InMemoryEventBus
 from app.core.event_serializer import EventSerializationError, SerializedEvent, deserialize, serialize
 from app.core.settings import settings
+from app.modules.event_outbox.domain.interfaces import IOutboxRepository
+from app.modules.event_outbox.infrastructure.persistence.repository import SQLAlchemyOutboxRepository
 
 logger = logging.getLogger(__name__)
 
@@ -62,6 +65,16 @@ def _camel_to_snake(name: str) -> str:
     return "".join(result)
 
 
+def _aggregate_id_from_event(event: Any) -> str | None:
+    """Best-effort aggregate ID extraction from common event field names."""
+    payload = getattr(event, "__dict__", {})
+    for key in ("order_id", "job_id", "user_id", "aggregate_id", "id"):
+        value = payload.get(key)
+        if value is not None:
+            return str(value)
+    return None
+
+
 class NatsEventBus(IEventBus):
     """Production-grade event bus backed by NATS JetStream.
 
@@ -70,14 +83,20 @@ class NatsEventBus(IEventBus):
     - Pull-based work queues for background workers
     - Per-event-type subjects
     - Dead-letter stream for failed deliveries
+    - Outbox pattern for atomic DB writes + event publication
     """
 
-    def __init__(self, nats_url: str | None = None):
+    def __init__(
+        self,
+        nats_url: str | None = None,
+        outbox_repository: IOutboxRepository | None = None,
+    ):
         self.nats_url = nats_url or settings.NATS_URL
         self._nc: nats.NATS | None = None
         self._js: nats.js.JetStreamContext | None = None
         self._handlers: dict[type, list[EventHandler]] = defaultdict(list)
         self._subscribers: list[nats.js.JetStreamContext.PullSubscription] = []
+        self._outbox_repository = outbox_repository or SQLAlchemyOutboxRepository()
 
     async def connect(self) -> None:
         self._nc = await nats.connect(self.nats_url)
@@ -135,6 +154,65 @@ class NatsEventBus(IEventBus):
         """
         await self._publish_to_nats(event)
         await self._invoke_local_handlers(event)
+
+    async def publish_durable(self, event: Any, session: AsyncSession) -> None:
+        """Write the event to the outbox table as part of the caller's transaction."""
+        try:
+            serialized = serialize(event)
+        except EventSerializationError:
+            logger.exception("Failed to serialize event %s", type(event).__name__)
+            return
+
+        subject = _subject_for_event_type(type(event))
+        await self._outbox_repository.add_outbox(
+            session,
+            event_class_path=serialized.event_class,
+            payload=serialized.payload,
+            subject=subject,
+        )
+        logger.debug("Staged %s in outbox for subject %s", type(event).__name__, subject)
+
+    async def relay_pending_outbox(self, session: AsyncSession) -> None:
+        """Publish pending outbox rows to NATS and record them in the event store."""
+        if not self._js:
+            logger.warning("NATS not connected; skipping outbox relay")
+            return
+
+        pending = await self._outbox_repository.get_pending_outbox(session)
+        if not pending:
+            return
+
+        for row in pending:
+            await self._relay_outbox_row(session, row)
+
+    async def _relay_outbox_row(self, session: AsyncSession, row: Any) -> None:
+        if not self._js:
+            logger.warning("NATS not connected; outbox row %s will remain pending", row.id)
+            return
+
+        try:
+            serialized = SerializedEvent(event_class=row.event_class_path, payload=row.payload)
+            await self._js.publish(row.subject, serialized.to_json())
+        except Exception as exc:
+            error_message = f"{type(exc).__name__}: {exc}"
+            logger.exception("Failed to relay outbox row %s: %s", row.id, error_message)
+            await self._outbox_repository.increment_outbox_attempts(
+                session, row.id, error_message
+            )
+            return
+
+        await self._outbox_repository.mark_outbox_published(session, row.id)
+        event_type = row.event_class_path.rsplit(".", 1)[-1]
+        await self._outbox_repository.add_event_store(
+            session,
+            event_type=event_type,
+            event_class_path=row.event_class_path,
+            payload=row.payload,
+            subject=row.subject,
+            aggregate_id=None,
+            correlation_id=None,
+        )
+        logger.debug("Relayed outbox row %s to %s", row.id, row.subject)
 
     async def _publish_to_nats(self, event: Any) -> None:
         if not self._js:

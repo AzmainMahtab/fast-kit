@@ -1,4 +1,5 @@
 from dataclasses import dataclass
+from unittest.mock import AsyncMock
 
 import pytest
 
@@ -80,3 +81,30 @@ async def test_handler_receives_correct_event_instance() -> None:
     await bus.publish(event)
 
     assert received == [event]
+
+
+@pytest.mark.asyncio
+async def test_publish_durable_uses_normal_publish_for_in_memory_bus() -> None:
+    bus = InMemoryEventBus()
+    received: list[SampleEvent] = []
+
+    async def handler(event: SampleEvent) -> None:
+        received.append(event)
+
+    bus.subscribe(SampleEvent, handler)
+    session = AsyncMock()
+
+    await bus.publish_durable(SampleEvent("durable"), session)
+
+    assert len(received) == 1
+    assert received[0].value == "durable"
+
+
+@pytest.mark.asyncio
+async def test_relay_pending_outbox_is_noop_for_in_memory_bus() -> None:
+    bus = InMemoryEventBus()
+    session = AsyncMock()
+
+    await bus.relay_pending_outbox(session)
+
+    session.assert_not_awaited()
