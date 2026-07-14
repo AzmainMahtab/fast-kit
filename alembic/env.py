@@ -14,6 +14,7 @@ from app.core.database import Base
 
 # All models here for Alembic to detect. Import your models here.
 from app.modules.car.infrastructure.persistence.models import CarModel  # noqa: F401
+from app.modules.catalog.infrastructure.persistence.models import ProductCategoryModel, ProductModel  # noqa: F401
 from app.modules.event_outbox.infrastructure.persistence.models import (  # noqa: F401
     DeadLetterEventModel,
     EventOutboxModel,
@@ -21,8 +22,15 @@ from app.modules.event_outbox.infrastructure.persistence.models import (  # noqa
     ProcessedEventModel,
 )
 from app.modules.notification.infrastructure.persistence.models import NotificationModel  # noqa: F401
+from app.modules.ordering.infrastructure.persistence.models import JobMemoModel, JobModel, OrderModel  # noqa: F401
 from app.modules.otp.infrastructure.persistence.models import OtpModel  # noqa: F401
 from app.modules.owner.infrastructure.persistence.models import OwnerModel  # noqa: F401
+from app.modules.payment.infrastructure.persistence.models import PaymentModel, PendingRefundModel  # noqa: F401
+from app.modules.promotion.infrastructure.persistence.models import (  # noqa: F401
+    CouponModel,
+    CouponProductModel,
+    CouponUsageModel,
+)
 from app.modules.rbac.infrastructure.persistence.models import (  # noqa: F401
     PermissionModel,
     RoleModel,
