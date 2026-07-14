@@ -1,9 +1,12 @@
 """Ordering API dependency providers."""
 
+from collections.abc import AsyncGenerator
+from contextlib import asynccontextmanager
+
 from fastapi import Depends, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.database import get_db
+from app.core.database import durable_unit_of_work, get_db
 from app.core.event_bus import IEventBus
 from app.modules.ordering.domain.interfaces import IJobRepository, IOrderRepository
 from app.modules.ordering.infrastructure.persistence.repository import (
@@ -13,9 +16,7 @@ from app.modules.ordering.infrastructure.persistence.repository import (
 from app.modules.ordering.use_cases.create_order import CreateOrderUseCase
 from app.modules.ordering.use_cases.get_order import GetOrderUseCase
 from app.modules.ordering.use_cases.list_orders import ListOrdersUseCase
-from app.modules.ordering.use_cases.transition_job_status import (
-    TransitionJobStatusUseCase,
-)
+from app.modules.ordering.use_cases.transition_job_status import TransitionJobStatusUseCase
 
 
 def get_event_bus(request: Request) -> IEventBus:
@@ -30,25 +31,35 @@ async def get_job_repo(db: AsyncSession = Depends(get_db)) -> IJobRepository:
     return SQLAlchemyJobRepository(db)
 
 
-async def get_create_order_use_case(
-    order_repo: IOrderRepository = Depends(get_order_repo),
-    job_repo: IJobRepository = Depends(get_job_repo),
+@asynccontextmanager
+async def get_durable_session(
     event_bus: IEventBus = Depends(get_event_bus),
+) -> AsyncGenerator[AsyncSession]:
+    """Provides a transactional session that commits and relays outbox events."""
+    async with durable_unit_of_work(event_bus) as session:
+        yield session
+
+
+async def get_create_order_use_case(
+    event_bus: IEventBus = Depends(get_event_bus),
+    session: AsyncSession = Depends(get_durable_session),
 ) -> CreateOrderUseCase:
     return CreateOrderUseCase(
-        order_repo=order_repo,
-        job_repo=job_repo,
+        order_repo=SQLAlchemyOrderRepository(session),
+        job_repo=SQLAlchemyJobRepository(session),
         event_bus=event_bus,
+        session=session,
     )
 
 
 async def get_transition_job_status_use_case(
-    job_repo: IJobRepository = Depends(get_job_repo),
     event_bus: IEventBus = Depends(get_event_bus),
+    session: AsyncSession = Depends(get_durable_session),
 ) -> TransitionJobStatusUseCase:
     return TransitionJobStatusUseCase(
-        job_repo=job_repo,
+        job_repo=SQLAlchemyJobRepository(session),
         event_bus=event_bus,
+        session=session,
     )
 
 

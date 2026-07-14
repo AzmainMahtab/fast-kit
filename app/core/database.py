@@ -1,11 +1,20 @@
+from __future__ import annotations
+
+import logging
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
+from typing import TYPE_CHECKING
 
 from sqlalchemy import DateTime, func
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
 from app.core.settings import settings
+
+if TYPE_CHECKING:
+    from app.core.event_bus import IEventBus
+
+logger = logging.getLogger(__name__)
 
 engine = create_async_engine(settings.ASYNC_DATABASE_URL, echo=settings.DEBUG)
 
@@ -23,6 +32,37 @@ async def unit_of_work() -> AsyncGenerator[AsyncSession]:
     try:
         yield session
         await session.commit()
+    except Exception:
+        await session.rollback()
+        raise
+    finally:
+        await session.close()
+
+
+@asynccontextmanager
+async def durable_unit_of_work(event_bus: IEventBus) -> AsyncGenerator[AsyncSession]:
+    """Transactional boundary that atomically commits business writes and relays events.
+
+    Events staged with ``event_bus.publish_durable(event, session)`` are written
+    to the outbox table in the same transaction as business writes. After the
+    transaction commits, pending outbox rows are relayed to NATS.
+
+    If the relay fails, the HTTP request still succeeds and the rows remain
+    pending for a background retry.
+    """
+    session = AsyncSessionLocal()
+    try:
+        yield session
+        await session.commit()
+        # Use a separate session for the relay so the main transaction is not
+        # reopened if the relay fails.
+        async with AsyncSessionLocal() as relay_session:
+            try:
+                await event_bus.relay_pending_outbox(relay_session)
+                await relay_session.commit()
+            except Exception:
+                await relay_session.rollback()
+                logger.exception("Failed to relay pending outbox events")
     except Exception:
         await session.rollback()
         raise

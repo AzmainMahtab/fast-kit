@@ -41,6 +41,7 @@ testpaths = [
     "app/core/tests",
     "app/modules/auth/tests",
     "app/modules/car/tests",
+    "app/modules/event_outbox/tests",
     "app/modules/notification/tests",
     "app/modules/ordering/tests",
     "app/modules/otp/tests",
