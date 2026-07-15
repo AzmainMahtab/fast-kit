@@ -54,7 +54,7 @@ async def list_orders(
     return SuccessEnvelope(
         statusCode=200,
         data=[OrderResponse.from_domain(r.order) for r in page.items],
-        meta={"total": page.total, "page": page.page, "page_size": page.page_size},
+        meta={"total": page.total, "offset": page.offset, "limit": page.limit},
     )
 
 

@@ -2,6 +2,7 @@
 
 from dataclasses import dataclass, field
 from datetime import datetime
+from uuid import UUID
 
 from app.modules.ordering.domain.state_machine import JobStateMachine
 
@@ -26,7 +27,7 @@ class Job:
 class Order:
     id: int | None = None
     order_number: str = ""
-    user_id: int | None = None
+    user_id: UUID | None = None
     status: str = "PENDING"
     jobs: list[Job] = field(default_factory=list)
     created_at: datetime | None = None

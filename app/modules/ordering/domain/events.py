@@ -1,6 +1,7 @@
 """Ordering domain events."""
 
 from dataclasses import dataclass
+from uuid import UUID
 
 
 @dataclass(frozen=True)
@@ -9,7 +10,7 @@ class OrderCreated:
 
     order_id: int
     order_number: str
-    user_id: int
+    user_id: UUID | None
     job_ids: list[str]
 
 
@@ -21,7 +22,7 @@ class JobStatusChanged:
     job_uuid: str
     old_status: str
     new_status: str
-    user_id: int | None
+    user_id: UUID | None
     reason: str
 
 

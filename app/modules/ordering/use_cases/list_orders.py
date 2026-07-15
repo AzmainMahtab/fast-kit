@@ -18,6 +18,6 @@ class ListOrdersUseCase:
         return Page(
             items=[OrderResult(order=o) for o in orders],
             total=total,
-            page=pagination.page,
-            page_size=pagination.page_size,
+            offset=pagination.offset,
+            limit=pagination.limit,
         )

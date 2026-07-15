@@ -1,5 +1,7 @@
 """Ordering Pydantic schemas."""
 
+from uuid import UUID
+
 from pydantic import BaseModel, Field
 
 from app.modules.ordering.domain.state_machine import JobStateMachine
@@ -10,7 +12,7 @@ class JobInputSchema(BaseModel):
 
 
 class OrderCreateSchema(BaseModel):
-    user_id: int = Field(..., gt=0)
+    user_id: UUID | None = Field(...)
     order_number: str = Field(..., max_length=32)
     jobs: list[JobInputSchema] = Field(..., min_length=1)
 
@@ -41,7 +43,7 @@ class JobResponse(BaseModel):
 class OrderResponse(BaseModel):
     id: int
     order_number: str
-    user_id: int
+    user_id: UUID | None
     status: str
     jobs: list[JobResponse]
 
