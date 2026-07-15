@@ -89,9 +89,11 @@ async def seed_superuser() -> None:
                 continue
             await rbac_repo.assign_permission_to_role(superadmin_role.id, perm.id)
 
-        # 4. Seed superuser (idempotent)
+        # 4. Seed superuser (idempotent by email or username)
         email_vo = Email(str(email))
         superuser = await user_repo.get_by_email(email_vo)
+        if not superuser and username:
+            superuser = await user_repo.get_by_username(username)
         if not superuser:
             superuser = User(
                 email=email_vo,
