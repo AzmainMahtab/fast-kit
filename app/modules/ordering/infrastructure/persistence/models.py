@@ -1,6 +1,6 @@
 """Ordering SQLAlchemy models."""
 
-from sqlalchemy import JSON, Date, ForeignKey, Numeric, String, Text, Time
+from sqlalchemy import JSON, Date, ForeignKey, Numeric, String, Text, Time, UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.database import Base, BaseModelMixin
@@ -11,7 +11,9 @@ class OrderModel(BaseModelMixin, Base):
 
     id: Mapped[int] = mapped_column(primary_key=True)
     order_number: Mapped[str] = mapped_column(String(32), unique=True, index=True)
-    user_id: Mapped[int] = mapped_column(index=True)
+    user_id: Mapped[UUID] = mapped_column(
+        ForeignKey("users.legacy_id", ondelete="RESTRICT"), index=True
+    )
     status: Mapped[str] = mapped_column(String(32), default="PENDING")
 
     # Elite4Print financial fields

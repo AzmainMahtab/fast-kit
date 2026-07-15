@@ -16,6 +16,11 @@ class UserModel(BaseModelMixin, Base):
         default=uuid_utils.uuid7,
         server_default=func.uuid_generate_v7(),
     )
+    # Mirrors the legacy Elite4Print user UUID so migrated slice data can reference
+    # the original identifier without changing the internal integer PK used by RBAC.
+    legacy_id: Mapped[UUID] = mapped_column(
+        UUID(as_uuid=True), unique=True, nullable=True, index=True
+    )
 
     email: Mapped[str] = mapped_column(String(255), unique=True, index=True)
     hashed_password: Mapped[str] = mapped_column(String(255), nullable=False)

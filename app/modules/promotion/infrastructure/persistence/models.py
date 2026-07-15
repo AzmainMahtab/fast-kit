@@ -1,6 +1,6 @@
 """Promotion / coupon SQLAlchemy models."""
 
-from sqlalchemy import DateTime, ForeignKey, Numeric, String, Text, UniqueConstraint
+from sqlalchemy import DateTime, ForeignKey, Numeric, String, Text, UniqueConstraint, UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.database import Base, BaseModelMixin
@@ -65,8 +65,8 @@ class CouponUsageModel(BaseModelMixin, Base):
     coupon_id: Mapped[int] = mapped_column(
         ForeignKey("coupons.id", ondelete="CASCADE"), index=True
     )
-    user_id: Mapped[int] = mapped_column(
-        ForeignKey("users.id", ondelete="CASCADE"), index=True
+    user_id: Mapped[UUID] = mapped_column(
+        ForeignKey("users.legacy_id", ondelete="RESTRICT"), index=True
     )
     order_id: Mapped[int] = mapped_column(
         ForeignKey("orders.id", ondelete="CASCADE"), unique=True, index=True

@@ -21,6 +21,33 @@ depends_on: str | Sequence[str] | None = None
 
 def upgrade() -> None:
     # ------------------------------------------------------------------
+    # User legacy UUID mapping
+    # ------------------------------------------------------------------
+    op.add_column(
+        "users",
+        sa.Column("legacy_id", sa.UUID(as_uuid=True), nullable=True),
+    )
+    op.create_index("ix_users_legacy_id", "users", ["legacy_id"], unique=True)
+
+    # orders.user_id was created as Integer in 0007; switch it to UUID so we can
+    # preserve the Elite4Print user UUIDs from the real dump.
+    op.drop_index("ix_orders_user_id", table_name="orders")
+    op.drop_column("orders", "user_id")
+    op.add_column(
+        "orders",
+        sa.Column("user_id", sa.UUID(as_uuid=True), nullable=False),
+    )
+    op.create_index("ix_orders_user_id", "orders", ["user_id"], unique=False)
+    op.create_foreign_key(
+        "fk_orders_user_id",
+        "orders",
+        "users",
+        ["user_id"],
+        ["legacy_id"],
+        ondelete="RESTRICT",
+    )
+
+    # ------------------------------------------------------------------
     # Catalog
     # ------------------------------------------------------------------
     op.create_table(
@@ -40,7 +67,7 @@ def upgrade() -> None:
         sa.Column("name", sa.String(length=255), nullable=False),
         sa.Column("description", sa.Text(), nullable=True),
         sa.Column("product_id", sa.String(length=255), nullable=False),
-        sa.Column("created_by_id", sa.Integer(), nullable=True),
+        sa.Column("created_by_id", sa.UUID(as_uuid=True), nullable=True),
         sa.Column("product_type", sa.String(length=255), nullable=False, server_default="OFFSET"),
         sa.Column("min_price", sa.Numeric(precision=10, scale=2), nullable=False, server_default="0"),
         sa.Column("max_price", sa.Numeric(precision=10, scale=2), nullable=False, server_default="0"),
@@ -57,7 +84,9 @@ def upgrade() -> None:
         sa.Column("updated_at", sa.DateTime(timezone=True), server_default=sa.text("now()"), nullable=False),
         sa.Column("deleted_at", sa.DateTime(timezone=True), nullable=True),
         sa.ForeignKeyConstraint(["category_id"], ["product_categories.id"], ondelete="CASCADE"),
-        sa.ForeignKeyConstraint(["created_by_id"], ["users.id"], ondelete="RESTRICT"),
+        sa.ForeignKeyConstraint(
+            ["created_by_id"], ["users.legacy_id"], ondelete="RESTRICT", name="fk_products_created_by_id"
+        ),
         sa.PrimaryKeyConstraint("id"),
         sa.UniqueConstraint("product_id"),
     )
@@ -256,13 +285,15 @@ def upgrade() -> None:
         sa.Column("card_number", sa.String(length=50), nullable=True),
         sa.Column("job_change_id", sa.Integer(), nullable=True),
         sa.Column("transactions_history", sa.JSON(), nullable=True),
-        sa.Column("user_id", sa.Integer(), nullable=True),
+        sa.Column("user_id", sa.UUID(as_uuid=True), nullable=True),
         sa.Column("created_at", sa.DateTime(timezone=True), server_default=sa.text("now()"), nullable=False),
         sa.Column("updated_at", sa.DateTime(timezone=True), server_default=sa.text("now()"), nullable=False),
         sa.Column("deleted_at", sa.DateTime(timezone=True), nullable=True),
         sa.ForeignKeyConstraint(["job_change_id"], ["jobs.id"], ondelete="SET NULL"),
         sa.ForeignKeyConstraint(["order_id"], ["orders.id"], ondelete="CASCADE"),
-        sa.ForeignKeyConstraint(["user_id"], ["users.id"], ondelete="CASCADE"),
+        sa.ForeignKeyConstraint(
+            ["user_id"], ["users.legacy_id"], ondelete="SET NULL", name="fk_payments_user_id"
+        ),
         sa.PrimaryKeyConstraint("id"),
     )
     op.create_index("ix_payments_job_change_id", "payments", ["job_change_id"], unique=False)
@@ -335,7 +366,7 @@ def upgrade() -> None:
         "coupon_usages",
         sa.Column("id", sa.Integer(), nullable=False),
         sa.Column("coupon_id", sa.Integer(), nullable=False),
-        sa.Column("user_id", sa.Integer(), nullable=False),
+        sa.Column("user_id", sa.UUID(as_uuid=True), nullable=False),
         sa.Column("order_id", sa.Integer(), nullable=False),
         sa.Column("status", sa.String(length=20), nullable=False, server_default="RESERVED"),
         sa.Column("created_at", sa.DateTime(timezone=True), server_default=sa.text("now()"), nullable=False),
@@ -343,7 +374,9 @@ def upgrade() -> None:
         sa.Column("deleted_at", sa.DateTime(timezone=True), nullable=True),
         sa.ForeignKeyConstraint(["coupon_id"], ["coupons.id"], ondelete="CASCADE"),
         sa.ForeignKeyConstraint(["order_id"], ["orders.id"], ondelete="CASCADE"),
-        sa.ForeignKeyConstraint(["user_id"], ["users.id"], ondelete="CASCADE"),
+        sa.ForeignKeyConstraint(
+            ["user_id"], ["users.legacy_id"], ondelete="RESTRICT", name="fk_coupon_usages_user_id"
+        ),
         sa.PrimaryKeyConstraint("id"),
         sa.UniqueConstraint("order_id"),
     )
@@ -353,6 +386,24 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
+    # Drop FKs that reference users.legacy_id before removing the column.
+    op.drop_constraint("fk_coupon_usages_user_id", "coupon_usages", type_="foreignkey")
+    op.drop_constraint("fk_payments_user_id", "payments", type_="foreignkey")
+    op.drop_constraint("fk_products_created_by_id", "products", type_="foreignkey")
+    op.drop_constraint("fk_orders_user_id", "orders", type_="foreignkey")
+
+    # Restore orders.user_id to Integer (matches 0007).
+    op.drop_index("ix_orders_user_id", table_name="orders")
+    op.drop_column("orders", "user_id")
+    op.add_column(
+        "orders",
+        sa.Column("user_id", sa.Integer(), nullable=False),
+    )
+    op.create_index("ix_orders_user_id", "orders", ["user_id"], unique=False)
+
+    op.drop_index("ix_users_legacy_id", table_name="users")
+    op.drop_column("users", "legacy_id")
+
     op.drop_index("ix_coupon_usages_user_id", table_name="coupon_usages")
     op.drop_index("ix_coupon_usages_order_id", table_name="coupon_usages")
     op.drop_index("ix_coupon_usages_coupon_id", table_name="coupon_usages")

@@ -1,6 +1,6 @@
 """Payment SQLAlchemy models."""
 
-from sqlalchemy import JSON, ForeignKey, Numeric, String, Text
+from sqlalchemy import JSON, ForeignKey, Numeric, String, Text, UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.database import Base, BaseModelMixin
@@ -25,8 +25,8 @@ class PaymentModel(BaseModelMixin, Base):
         ForeignKey("jobs.id", ondelete="SET NULL"), nullable=True, index=True
     )
     transactions_history: Mapped[dict | None] = mapped_column(JSON, nullable=True)
-    user_id: Mapped[int | None] = mapped_column(
-        ForeignKey("users.id", ondelete="CASCADE"), nullable=True, index=True
+    user_id: Mapped[UUID] = mapped_column(
+        ForeignKey("users.legacy_id", ondelete="SET NULL"), nullable=True, index=True
     )
 
     pending_refunds: Mapped[list[PendingRefundModel]] = relationship(
