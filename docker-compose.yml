@@ -26,6 +26,10 @@ services:
       - SMTP_FROM_NAME=${SMTP_FROM_NAME}
       - NATS_ENABLED=${NATS_ENABLED}
       - NATS_URL=${NATS_URL}
+      - FIRST_SUPERUSER_EMAIL=${FIRST_SUPERUSER_EMAIL} # Seeds first admin login (used by seed_superuser)
+      - FIRST_SUPERUSER_PASSWORD=${FIRST_SUPERUSER_PASSWORD}
+      - FIRST_SUPERUSER_USERNAME=${FIRST_SUPERUSER_USERNAME}
+      - FIRST_SUPERUSER_PHONE_NUMBER=${FIRST_SUPERUSER_PHONE_NUMBER}
     volumes:
       # Hot-reload mapping: Maps local app/ folder into the container
       - ./app:/app/app

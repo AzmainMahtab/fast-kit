@@ -6,6 +6,7 @@ from fastapi import FastAPI, HTTPException
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 
+from app.admin.setup import create_admin
 from app.core.cache import NullCache, RedisCache, create_redis_client
 from app.core.database import AsyncSessionLocal
 from app.core.event_bus import IEventBus, InMemoryEventBus
@@ -127,3 +128,7 @@ app.include_router(car_router, prefix=settings.API_V1_PREFIX)
 app.include_router(rbac_router, prefix=settings.API_V1_PREFIX)
 app.include_router(ordering_router, prefix=settings.API_V1_PREFIX)
 app.include_router(notification_router, prefix=settings.API_V1_PREFIX)
+
+# Back-office admin (SQLAdmin). One-way dependency: nothing outside
+# app.admin imports it; see app/admin/__init__.py for the rule.
+create_admin(app)
