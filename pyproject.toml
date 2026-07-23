@@ -39,6 +39,9 @@ test = [
 [tool.pytest.ini_options]
 pythonpath = ["."]
 asyncio_mode = "auto"
+markers = [
+    "integration: requires a live NATS JetStream server; skipped when unreachable",
+]
 testpaths = [
     "app/admin/tests",
     "app/core/tests",

@@ -25,8 +25,10 @@ class TestNatsSubjectMapping:
         assert subject == "events.test_nats_bus.order_created"
 
     def test_dlq_subject_for_event_type(self):
+        # The DLQ subject space is disjoint from the events space: JetStream
+        # refuses to create streams whose subjects overlap.
         subject = _dlq_subject_for_event_type(OrderCreated)
-        assert subject == "events.test_nats_bus.dlq"
+        assert subject == "dlq.test_nats_bus.order_created"
 
     def test_durable_name(self):
         assert _durable_name("events.ordering.order_created") == "events_ordering_order_created"
