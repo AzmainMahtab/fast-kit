@@ -156,53 +156,60 @@ Created tables: `event_outbox`, `event_store`, `dead_letter_events`, `processed_
 
 ---
 
-### Phase 2: Event Store (Audit + Replay)
+### Phase 2: Event Store (Audit + Replay) ✅ Implemented
 
 **Goal:** Every published event is logged immutably.
 
-#### 2.1 Write path
+**Implemented:**
+
+#### 2.1 Write path ✅
 
 - `NatsEventBus.publish()` and `publish_durable()` append to `EventStoreModel`.
-- Include correlation ID, aggregate ID, event class path, payload, timestamp.
+- Aggregate ID is extracted from the event payload; correlation ID is reserved for Phase 4.
 
-#### 2.2 Read API
+#### 2.2 Read API ✅
 
 **New files:**
 - `app/modules/event_outbox/api/router.py`
 - `app/modules/event_outbox/api/schemas.py`
+- `app/modules/event_outbox/api/dependencies.py`
 
 Endpoints:
-- `GET /api/v1/admin/events` — list events (filter by type, aggregate_id, date range).
+- `GET /api/v1/admin/events` — list events (filter by type, aggregate_id).
 - `GET /api/v1/admin/events/{event_id}` — single event.
 - `POST /api/v1/admin/events/{event_id}/replay` — re-publish event to NATS.
 
-#### 2.3 Admin UI (optional but recommended)
+#### 2.3 Admin UI (optional but recommended) ❌
 
 - React-Admin resource for `EventStore` and `DeadLetterEvent`.
+- **Deferred to Phase 7.**
 
 **Estimated effort:** 1–2 days.
 
 ---
 
-### Phase 3: Dead-Letter Queue Inspection & Replay
+### Phase 3: Dead-Letter Queue Inspection & Replay ✅ Implemented
 
 **Goal:** Make NATS DLQ actionable.
 
-#### 3.1 Persist DLQ events in PostgreSQL
+**Implemented:**
 
-- Modify `NatsEventBus._handle_message` to write to `DeadLetterEventModel` after max retries.
-- Or: add a DLQ consumer that reads `events.*.dlq` and persists them.
+#### 3.1 Persist DLQ events in PostgreSQL ✅
 
-#### 3.2 Admin API
+- Added `NatsEventBus.start_dlq_consuming()` pull consumer that reads `events.*.dlq` and persists each message to `DeadLetterEventModel`.
+- `NatsEventBus._handle_message` keeps using `msg.nak()` so NATS routes exhausted deliveries to the DLQ stream.
+
+#### 3.2 Admin API ✅
 
 - `GET /api/v1/admin/dead-letter-events`
+- `GET /api/v1/admin/dead-letter-events/{id}`
 - `POST /api/v1/admin/dead-letter-events/{id}/replay`
 - `POST /api/v1/admin/dead-letter-events/{id}/resolve`
 
-#### 3.3 Replay logic
+#### 3.3 Replay/resolve logic ✅
 
 - Deserialize event from `DeadLetterEventModel`.
-- Publish to original subject.
+- Publish to original subject via `event_bus.publish_raw(...)`.
 - Mark `resolved_at`.
 
 **Estimated effort:** 1–2 days.
@@ -443,8 +450,8 @@ Recommended sequence:
 
 - [x] `publish_durable()` is atomic with business DB writes.
 - [x] Events published durably are recorded in `EventStore` after relay.
-- [ ] Every event is queryable in `EventStore` (admin API/UI pending).
-- [ ] Failed events are visible in `DeadLetterEvent` and replayable.
+- [x] Every event is queryable in `EventStore` via admin API.
+- [x] Failed events are visible in `DeadLetterEvent` and replayable/resolveable via admin API.
 - [ ] Correlation IDs trace a request from API -> NATS -> handler.
 - [ ] Re-publishing/replaying the same event does not duplicate side effects.
 - [ ] Prometheus metrics expose publish/consume/DLW/outbox counts.
