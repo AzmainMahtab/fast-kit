@@ -50,7 +50,10 @@ async def main() -> None:
     logger.info("Worker started; waiting for events on %s", settings.NATS_URL)
 
     try:
-        await bus.start_consuming()
+        await asyncio.gather(
+            bus.start_consuming(),
+            bus.start_dlq_consuming(),
+        )
     except asyncio.CancelledError:
         logger.info("Worker shutting down...")
     finally:

@@ -10,6 +10,7 @@ import nats
 from nats.js.api import ConsumerConfig, RetentionPolicy, StorageType, StreamConfig
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.database import AsyncSessionLocal
 from app.core.event_bus import IEventBus, InMemoryEventBus
 from app.core.event_serializer import EventSerializationError, SerializedEvent, deserialize, serialize
 from app.core.settings import settings
@@ -150,10 +151,24 @@ class NatsEventBus(IEventBus):
         """Publish an event to JetStream.
 
         Local in-memory subscribers are also invoked immediately so the API
-        process can react synchronously when needed.
+        process can react synchronously when needed. Every successful NATS
+        publish is also recorded in the event store for audit/replay.
         """
         await self._publish_to_nats(event)
         await self._invoke_local_handlers(event)
+        await self._record_event_store(event)
+
+    async def publish_raw(self, subject: str, payload: bytes) -> None:
+        """Publish a raw payload to a NATS subject without side effects.
+
+        This is used by operational replay endpoints to re-send stored events
+        exactly as they were originally published. It does not invoke local
+        handlers or write to the event store.
+        """
+        if not self._js:
+            raise RuntimeError("NATS event bus is not connected")
+        await self._js.publish(subject, payload)
+        logger.debug("Replayed raw event to %s", subject)
 
     async def publish_durable(self, event: Any, session: AsyncSession) -> None:
         """Write the event to the outbox table as part of the caller's transaction."""
@@ -202,14 +217,20 @@ class NatsEventBus(IEventBus):
             return
 
         await self._outbox_repository.mark_outbox_published(session, row.id)
-        event_type = row.event_class_path.rsplit(".", 1)[-1]
+
+        try:
+            event = deserialize(serialized)
+            aggregate_id = _aggregate_id_from_event(event)
+        except EventSerializationError:
+            logger.exception("Failed to deserialize outbox row %s for event store", row.id)
+            aggregate_id = None
+
         await self._outbox_repository.add_event_store(
             session,
-            event_type=event_type,
+            event_type=row.event_class_path.rsplit(".", 1)[-1],
             event_class_path=row.event_class_path,
             payload=row.payload,
-            subject=row.subject,
-            aggregate_id=None,
+            aggregate_id=aggregate_id,
             correlation_id=None,
         )
         logger.debug("Relayed outbox row %s to %s", row.id, row.subject)
@@ -227,6 +248,42 @@ class NatsEventBus(IEventBus):
         subject = _subject_for_event_type(type(event))
         await self._js.publish(subject, serialized.to_json())
         logger.debug("Published %s to %s", type(event).__name__, subject)
+
+    async def _record_event_store(self, event: Any) -> None:
+        """Persist the event to the event store in a separate session.
+
+        This is intentionally non-transactional: the event has already been
+        published to NATS, so the store is an audit trail rather than a
+        correctness mechanism.
+        """
+        try:
+            serialized = serialize(event)
+        except EventSerializationError:
+            logger.exception("Failed to serialize event for event store %s", type(event).__name__)
+            return
+
+        try:
+            event = deserialize(serialized)
+        except EventSerializationError:
+            logger.exception("Failed to deserialize event for event store %s", serialized.event_class)
+            event = None
+
+        aggregate_id = _aggregate_id_from_event(event) if event is not None else None
+
+        async with AsyncSessionLocal() as session:
+            try:
+                await self._outbox_repository.add_event_store(
+                    session,
+                    event_type=serialized.event_class.rsplit(".", 1)[-1],
+                    event_class_path=serialized.event_class,
+                    payload=serialized.payload,
+                    aggregate_id=aggregate_id,
+                    correlation_id=None,
+                )
+                await session.commit()
+            except Exception:
+                logger.exception("Failed to write event store audit row")
+                await session.rollback()
 
     async def _invoke_local_handlers(self, event: Any) -> None:
         for handler in self._handlers.get(type(event), []):
@@ -296,6 +353,83 @@ class NatsEventBus(IEventBus):
             logger.exception("Handler failed for %s", event_type.__name__)
             # NATS will redeliver up to max_deliver, then route to DLQ if configured
             await msg.nak()
+
+    async def start_dlq_consuming(self) -> None:
+        """Start a pull consumer for the NATS DLQ stream.
+
+        Failed messages are persisted to ``DeadLetterEventModel`` so operators
+        can inspect and replay them. This is intended to run inside the worker
+        process alongside ``start_consuming``.
+        """
+        if not self._js:
+            raise RuntimeError("NATS event bus is not connected")
+
+        dlq_subject = f"{settings.NATS_EVENTS_SUBJECT_PREFIX}.*.dlq"
+        durable_name = _durable_name(f"{settings.NATS_EVENTS_SUBJECT_PREFIX}_dlq")
+
+        try:
+            sub = await self._js.pull_subscribe(
+                dlq_subject,
+                config=ConsumerConfig(
+                    name=durable_name,
+                    durable_name=durable_name,
+                    max_deliver=1,
+                    deliver_policy=nats.js.api.DeliverPolicy.ALL,
+                    ack_policy=nats.js.api.AckPolicy.EXPLICIT,
+                ),
+            )
+            self._subscribers.append(sub)
+            logger.info("Started NATS DLQ consumer on %s", dlq_subject)
+        except nats.js.errors.BadRequestError:
+            logger.warning("DLQ consumer may already exist")
+            return
+
+        while True:
+            try:
+                msgs = await sub.fetch(batch=10, timeout=5)
+            except nats.errors.TimeoutError:
+                continue
+
+            for msg in msgs:
+                await self._persist_dlq_message(msg)
+
+    async def _persist_dlq_message(self, msg: nats.aio.msg.Msg) -> None:
+        """Persist a NATS DLQ message to the dead-letter table."""
+        try:
+            serialized = SerializedEvent.from_json(msg.data)
+        except (EventSerializationError, KeyError, json.JSONDecodeError) as exc:
+            logger.exception("Failed to deserialize DLQ message: %s", exc)
+            await msg.ack()
+            return
+
+        try:
+            event = deserialize(serialized)
+            subject = _subject_for_event_type(type(event))
+        except EventSerializationError:
+            logger.exception("Failed to deserialize DLQ event %s", serialized.event_class)
+            subject = f"{settings.NATS_EVENTS_SUBJECT_PREFIX}.unknown"
+
+        error_message = "Exceeded max delivery attempts"
+        if msg.headers:
+            error_message = msg.headers.get("Nats-Last-Error") or error_message
+
+        async with AsyncSessionLocal() as session:
+            try:
+                await self._outbox_repository.add_dead_letter(
+                    session,
+                    event_class_path=serialized.event_class,
+                    payload=serialized.payload,
+                    subject=subject,
+                    error_message=error_message,
+                    attempts=settings.NATS_CONSUMER_MAX_DELIVER,
+                )
+                await session.commit()
+                await msg.ack()
+                logger.debug("Persisted DLQ message for %s", serialized.event_class)
+            except Exception:
+                logger.exception("Failed to persist DLQ message")
+                await session.rollback()
+                await msg.nak()
 
 
 def _durable_name(subject: str) -> str:

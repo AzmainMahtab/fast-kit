@@ -27,6 +27,14 @@ class IEventBus(ABC):
     async def relay_pending_outbox(self, session: AsyncSession) -> None:
         """Publish all pending outbox rows to NATS and record them in the event store."""
 
+    @abstractmethod
+    async def publish_raw(self, subject: str, payload: bytes) -> None:
+        """Publish a raw payload to a NATS subject without recording or invoking handlers.
+
+        Used by operational replay endpoints to re-send stored events exactly as they
+        were originally published.
+        """
+
 
 class InMemoryEventBus(IEventBus):
     def __init__(self) -> None:
@@ -45,3 +53,6 @@ class InMemoryEventBus(IEventBus):
 
     async def relay_pending_outbox(self, session: AsyncSession) -> None:
         """No-op for the in-memory bus."""
+
+    async def publish_raw(self, subject: str, payload: bytes) -> None:
+        """No-op for the in-memory bus; there is no transport to republish to."""

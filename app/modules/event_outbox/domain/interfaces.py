@@ -45,7 +45,6 @@ class IOutboxRepository(ABC):
         event_type: str,
         event_class_path: str,
         payload: dict[str, Any],
-        subject: str,
         aggregate_id: str | None,
         correlation_id: str | None,
     ) -> EventStoreModel: ...
@@ -61,3 +60,37 @@ class IOutboxRepository(ABC):
         error_message: str,
         attempts: int,
     ) -> DeadLetterEventModel: ...
+
+    @abstractmethod
+    async def list_event_store(
+        self,
+        session: AsyncSession,
+        *,
+        event_type: str | None = None,
+        aggregate_id: str | None = None,
+        limit: int = 20,
+        offset: int = 0,
+    ) -> Sequence[EventStoreModel]: ...
+
+    @abstractmethod
+    async def get_event_store(self, session: AsyncSession, event_id: UUID) -> EventStoreModel | None: ...
+
+    @abstractmethod
+    async def list_dead_letter(
+        self,
+        session: AsyncSession,
+        *,
+        resolved: bool | None = None,
+        limit: int = 20,
+        offset: int = 0,
+    ) -> Sequence[DeadLetterEventModel]: ...
+
+    @abstractmethod
+    async def get_dead_letter(
+        self, session: AsyncSession, dead_letter_id: UUID
+    ) -> DeadLetterEventModel | None: ...
+
+    @abstractmethod
+    async def mark_dead_letter_resolved(
+        self, session: AsyncSession, dead_letter_id: UUID
+    ) -> DeadLetterEventModel | None: ...

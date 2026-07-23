@@ -106,6 +106,12 @@ ignore = [
 "app/modules/ordering/api/router.py" = [
     "B008",  # Depends()/Query() in defaults is required FastAPI pattern
 ]
+"app/modules/event_outbox/api/dependencies.py" = [
+    "B008",  # Depends() in defaults is required FastAPI pattern
+]
+"app/modules/event_outbox/api/router.py" = [
+    "B008",  # Depends()/Query() in defaults is required FastAPI pattern
+]
 "app/core/rate_limit.py" = [
     "B008",  # Depends() in dependency factory is required FastAPI pattern
 ]
