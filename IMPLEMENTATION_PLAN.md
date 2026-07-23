@@ -32,7 +32,7 @@ Make fast-kit's event bus, workers, and scheduler production-ready by adding:
 | ORM | SQLAlchemy async | Existing choice. |
 | Worker model | Separate container running `app/worker.py` | Already implemented. |
 | Scheduler model | Separate container running `app/scheduler.py` | Already implemented. |
-| Admin UI | Headless (API-first) with optional React-Admin/Refine later | No Django admin in FastAPI. |
+| Admin UI | SQLAdmin for admin CRUD views | Already implemented; Phase 7 extends it for events/DLQ/outbox. |
 
 ## 3. Decisions Still Needed
 
@@ -43,7 +43,7 @@ Make fast-kit's event bus, workers, and scheduler production-ready by adding:
 | 3 | Idempotency backend | Redis / PostgreSQL | PostgreSQL (`processed_events` table created, guard not yet implemented). |
 | 4 | Metrics backend | Prometheus / Datadog / CloudWatch | Prometheus + Grafana (not yet implemented). |
 | 5 | Tracing | OpenTelemetry / Jaeger / none | OpenTelemetry with optional Jaeger (not yet implemented). |
-| 6 | Admin UI framework | React-Admin / Refine / custom | React-Admin (not yet implemented). |
+| 6 | Admin UI framework | SQLAdmin | SQLAdmin (extend existing admin layer in Phase 7). |
 | 7 | Schema registry | Pydantic models only / Avro / JSON Schema | Pydantic models + registry (not yet implemented). |
 
 ---
@@ -181,7 +181,7 @@ Endpoints:
 
 #### 2.3 Admin UI (optional but recommended) ❌
 
-- React-Admin resource for `EventStore` and `DeadLetterEvent`.
+- SQLAdmin `ModelView` classes for `EventStoreModel` and `DeadLetterEventModel`.
 - **Deferred to Phase 7.**
 
 **Estimated effort:** 1–2 days.
@@ -312,10 +312,13 @@ All under `/api/v1/admin/`:
 - Outbox pending count
 - Stream/consumer status (read from NATS monitoring API)
 
-#### 7.2 React-Admin (or Refine)
+#### 7.2 SQLAdmin views
 
-- Resources: `events`, `dead-letter-events`, `outbox`.
-- Custom actions: Replay, Resolve.
+- Register SQLAdmin `ModelView` classes under `app/admin/` for:
+  - `EventStoreModel`
+  - `DeadLetterEventModel`
+  - `EventOutboxModel`
+- Provide read-only list/detail views plus replay/resolve actions via custom links or API calls.
 
 **Estimated effort:** 3–5 days.
 
