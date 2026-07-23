@@ -109,6 +109,9 @@ ignore = [
 "app/core/rate_limit.py" = [
     "B008",  # Depends() in dependency factory is required FastAPI pattern
 ]
+"app/admin/views.py" = [
+    "RUF012",  # SQLAdmin ModelView config is class-attribute lists by design
+]
 [lint.pydocstyle]
 convention = "google"
 

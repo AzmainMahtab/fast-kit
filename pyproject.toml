@@ -16,6 +16,7 @@ dependencies = [
     "pyjwt>=2.12.1",
     "python-dotenv>=1.2.2",
     "redis>=7.4.0",
+    "sqladmin[full]>=0.29.0",
     "sqlalchemy[asyncio]>=2.0.49",
     "uuid-utils>=0.14.1",
 ]
@@ -26,6 +27,7 @@ dev = [
     "pre-commit>=4.6.0",
     "ruff>=0.15.12",
     "sqlalchemy>=2.0.49",
+    "types-wtforms>=3.2.1.20260518",
 ]
 test = [
     "httpx>=0.28.1",
@@ -38,6 +40,7 @@ test = [
 pythonpath = ["."]
 asyncio_mode = "auto"
 testpaths = [
+    "app/admin/tests",
     "app/core/tests",
     "app/modules/auth/tests",
     "app/modules/car/tests",

@@ -41,6 +41,8 @@ _SEED_PERMISSIONS: list[tuple[str, str, str]] = [
     # Car module
     ("car:create", "car", "create"),
     ("car:read", "car", "read"),
+    # Back-office admin access (checked by app.admin, not an API router)
+    ("admin:access", "admin", "access"),
 ]
 
 _SUPERADMIN_ROLE_NAME = "superadmin"
