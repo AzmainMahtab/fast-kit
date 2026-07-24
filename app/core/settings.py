@@ -50,7 +50,15 @@ class Settings(BaseSettings):
     NATS_EVENTS_STREAM: str = "EVENTS"
     NATS_EVENTS_SUBJECT_PREFIX: str = "events"
     NATS_DLQ_STREAM: str = "EVENTS_DLQ"
+    # Must not overlap with NATS_EVENTS_SUBJECT_PREFIX: JetStream rejects streams
+    # whose subject spaces intersect (err_code 10065).
+    NATS_DLQ_SUBJECT_PREFIX: str = "dlq"
     NATS_CONSUMER_MAX_DELIVER: int = 3
+    # Attempts the DLQ consumer gets to write a dead letter to PostgreSQL before
+    # giving up. Must be > 1 or a transient DB outage discards the dead letter.
+    NATS_DLQ_CONSUMER_MAX_DELIVER: int = 5
+    NATS_DLQ_RETRY_BASE_DELAY_SECONDS: float = 5.0
+    NATS_DLQ_RETRY_MAX_DELAY_SECONDS: float = 300.0
 
     # SECURITY
     JWT_SECRET_KEY: str = ""

@@ -89,7 +89,6 @@ async def test_relay_pending_outbox_publishes_and_records_event_store(
         event_type="OrderCreated",
         event_class_path="app.modules.ordering.domain.events.OrderCreated",
         payload={"order_id": 1},
-        subject="events.ordering.order_created",
         aggregate_id=None,
         correlation_id=None,
     )

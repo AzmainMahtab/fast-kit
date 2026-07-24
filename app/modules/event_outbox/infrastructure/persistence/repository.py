@@ -65,7 +65,6 @@ class SQLAlchemyOutboxRepository(IOutboxRepository):
         event_type: str,
         event_class_path: str,
         payload: dict[str, Any],
-        subject: str,
         aggregate_id: str | None,
         correlation_id: str | None,
     ) -> EventStoreModel:
@@ -102,4 +101,57 @@ class SQLAlchemyOutboxRepository(IOutboxRepository):
         session.add(model)
         await session.flush()
         await session.refresh(model)
+        return model
+
+    async def list_event_store(
+        self,
+        session: AsyncSession,
+        *,
+        event_type: str | None = None,
+        aggregate_id: str | None = None,
+        limit: int = 20,
+        offset: int = 0,
+    ) -> Sequence[EventStoreModel]:
+        stmt = select(EventStoreModel).order_by(EventStoreModel.published_at.desc())
+        if event_type:
+            stmt = stmt.where(EventStoreModel.event_type == event_type)
+        if aggregate_id:
+            stmt = stmt.where(EventStoreModel.aggregate_id == aggregate_id)
+        stmt = stmt.offset(offset).limit(limit)
+        result = await session.execute(stmt)
+        return result.scalars().all()
+
+    async def get_event_store(self, session: AsyncSession, event_id: UUID) -> EventStoreModel | None:
+        return await session.get(EventStoreModel, event_id)
+
+    async def list_dead_letter(
+        self,
+        session: AsyncSession,
+        *,
+        resolved: bool | None = None,
+        limit: int = 20,
+        offset: int = 0,
+    ) -> Sequence[DeadLetterEventModel]:
+        stmt = select(DeadLetterEventModel).order_by(DeadLetterEventModel.created_at.desc())
+        if resolved is True:
+            stmt = stmt.where(DeadLetterEventModel.resolved_at.is_not(None))
+        elif resolved is False:
+            stmt = stmt.where(DeadLetterEventModel.resolved_at.is_(None))
+        stmt = stmt.offset(offset).limit(limit)
+        result = await session.execute(stmt)
+        return result.scalars().all()
+
+    async def get_dead_letter(
+        self, session: AsyncSession, dead_letter_id: UUID
+    ) -> DeadLetterEventModel | None:
+        return await session.get(DeadLetterEventModel, dead_letter_id)
+
+    async def mark_dead_letter_resolved(
+        self, session: AsyncSession, dead_letter_id: UUID
+    ) -> DeadLetterEventModel | None:
+        model = await session.get(DeadLetterEventModel, dead_letter_id)
+        if model is None:
+            return None
+        model.resolved_at = datetime.now(UTC)
+        await session.flush()
         return model

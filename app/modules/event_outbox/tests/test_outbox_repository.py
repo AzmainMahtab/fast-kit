@@ -104,7 +104,6 @@ async def test_add_event_store_creates_audit_row() -> None:
         event_type="OrderCreated",
         event_class_path="app.modules.ordering.domain.events.OrderCreated",
         payload={"order_id": 1},
-        subject="events.ordering.order_created",
         aggregate_id="1",
         correlation_id="corr-123",
     )
